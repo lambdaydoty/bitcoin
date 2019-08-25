@@ -17,7 +17,7 @@
 // TODO: rename toHexString -> toHexNotation
 //
 const R = require('ramda')
-const { __, o, prop, pipe, init, last, isEmpty, compose, always } = R
+const { __, o, prop, pipe, init, last, isEmpty, compose } = R
 
 const toHexNotation = require('./toHexString')
 const nToUInt32BE = require('./nToUInt32BE')
@@ -49,6 +49,7 @@ const toCWIF = compose(base58check(cWIF), concat(__, ONE), prop('key'))
 
 module.exports = {
   master,
+  CKDpub,
   toTprv,
   toTpub,
   toXprv,
@@ -102,6 +103,7 @@ function serialize ({
   key: _key,
   chainCode,
 }) {
+  // pad leading zeros if not neutered
   const key = Buffer.alloc(33, 0)
   _key.copy(key, key.length - _key.length)
   return Buffer.concat([
@@ -114,8 +116,7 @@ function serialize ({
 }
 
 function master (seed) {
-  return pipe(
-    always(seed),
+  const fn = pipe(
     hmacSHA512('Bitcoin seed'),
     split512bits,
     ([IL, IR]) => ({
@@ -127,7 +128,8 @@ function master (seed) {
       toPublic,
       derivePath,
     }),
-  )()
+  )
+  return fn(seed)
 }
 
 function toPublic () {
