@@ -1,31 +1,62 @@
-const BN = require('bignumber.js')
-const { bn } = require('../utils')
+const R = require('ramda')
+const { T, cond, always, compose } = R
+const _BN = require('bignumber.js')
+const INF = new _BN('Infinity')
 
-bn.setBase = b => { BN._BASE = bn(b) }
-bn.sum = (...operands) => BN.sum(...operands).modulo(BN._BASE)
-bn.INF = bn('Infinity')
-BN.prototype = { ...BN.prototype,
+module.exports = (prime) => {
+  class Self extends _BN {
+    add (y) { return new Self(this.plus(y).modulo(Self.prime)) }
+    sub (y) { return new Self(this.minus(y).modulo(Self.prime)) }
+    mul (y) { return new Self(this.times(y).modulo(Self.prime)) }
 
-  add (y) { return this.plus(y).modulo(BN._BASE) },
-  sub (y) { return this.minus(y).modulo(BN._BASE) },
-  mul (y) { return this.times(y).modulo(BN._BASE) },
-  exp (y) { return this.pow(y).modulo(BN._BASE) },
-  inv () { return this.exp(BN._BASE - 2) }, // Fermat
-  div (y) { return this.mul(bn(y).inv()) },
+    exp (n) {
+      if (typeof n !== 'number' && !(n instanceof _BN)) throw new Error(n)
+      // return new Self(this.pow(n).modulo(Self.prime))
+      const recur = m => cond([
+        [isZero, always(new Self(1))],
+        [isEven, compose(square, recur, half)],
+        [T, compose(lmul(this), recur, sub1)],
+      ])(m)
 
-  eq (y) { return this.isEqualTo(y) || this.minus(y).modulo(BN._BASE).isEqualTo(0) },
-  neq (y) { return !this.eq(y) },
+      // return recur(n)
+      return R.memoizeWith(x => x.toString(), recur)(n)
 
-  sqr () { return this.exp(2) },
-  cub () { return this.exp(3) },
+      function isZero (m) { return m.isZero() }
+      function isEven (m) { return m.modulo(2).isZero() }
+      function half (m) { return m.dividedBy(2) }
+      function sub1 (m) { return m.minus(1) }
 
-  residue () {
-    return this // mock
-    // return this.isNegative()
-    //   ? this.modulo(BN._BASE).plus(BN._BASE)
-    //   : this
-  },
+      function square (y) { return y.sqr() }
+      function lmul (unit) {
+        return function (right) {
+          return right.mul(unit)
+        }
+      }
+    }
 
+    inv () { return this.exp(Self.prime.minus(2)) } // Fermat
+
+    div (y) { return this.mul(y.inv()) }
+
+    eq (y) { return this.isEqualTo(y) || this.sub(y).isEqualTo(0) }
+    neq (y) { return !this.eq(y) }
+
+    sqr () { return this.mul(this) }
+    cub () { return this.mul(this).mul(this) }
+
+    residue () {
+      return this // disable
+      // return this.isNegative()
+      //   ? this.modulo(BN._BASE).plus(BN._BASE)
+      //   : this
+    }
+
+    static sum (...operands) { return _BN.sum(...operands).modulo(Self.prime) }
+  }
+
+  Self.prime = new _BN(prime)
+  Self.bn = x => new Self(x)
+  Self.inf = INF
+
+  return Self
 }
-
-module.exports = { bn }

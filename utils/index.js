@@ -1,10 +1,10 @@
 const BN = require('bignumber.js')
 
 function bn (value) {
-  return new BN(value instanceof Buffer
+  const _val = value instanceof Buffer
     ? `0x${value.toString('hex')}`
     : value.toString()
-  )
+  return new BN(_val)
 }
 
 BN.prototype.toBigEndian = function (bits = 256) {
