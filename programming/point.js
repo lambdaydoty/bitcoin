@@ -1,19 +1,26 @@
 const R = require('ramda')
-const { T, cond, always, compose } = R
+const { T, cond, compose } = R
 const ff = require('./finite-field')
 
 module.exports = (a, b, p, order = null) => {
   const BN = ff(p)
-  const { bn, inf } = BN
+  const { inf } = BN
+  const bn = x => new BN(x)
 
   class Self {
     constructor (x, y) {
-      if (!compatible(x, y, a, b)) throw new Error({ x, y, a, b })
-      this._x = bn(x).residue()
-      this._y = bn(y).residue()
+      if (x.isEqualTo && x.isEqualTo(inf) &&
+        y.isEqualTo && y.isEqualTo(inf)) {
+        this._x = x
+        this._y = y
+      } else {
+        if (!compatible(x, y, a, b)) throw new Error({ x, y, a, b })
+        this._x = bn(x).residue()
+        this._y = bn(y).residue()
+        if (!this._x.isFF() || !this._y.isFF()) throw new Error(`${this._x} ${this._y}`)
+      }
+
       function compatible (x, y, a, b) {
-        if (x.isEqualTo && x.isEqualTo(inf) &&
-          y.isEqualTo && y.isEqualTo(inf)) return true
         // console.log(`a: ${a.toString()}`)
         // console.log(`b: ${b.toString()}`)
         // console.log(`p: ${p.toString()}`)
@@ -29,6 +36,14 @@ module.exports = (a, b, p, order = null) => {
     }
 
     toString () { return `(${this._x.toString()}, ${this._y.toString()})` }
+    toCompress () {
+      const even = Buffer.from([0x02])
+      const odd = Buffer.from([0x03])
+      const x = Buffer.from(this._x.toString(16).padStart(64, '0'), 'hex')
+      const prefix = this._y.modulo(2).isEqualTo(0) ? even : odd
+      const compressed = Buffer.concat([prefix, x])
+      return compressed
+    }
 
     eq (that) { return this._x.eq(that._x) && this._y.eq(that._y) }
     neq (that) { return !this.eq(that) }
@@ -61,29 +76,53 @@ module.exports = (a, b, p, order = null) => {
         ? bn(_n).modulo(Self.order) // modulo Group order if provided!
         : bn(_n)
 
+      // console.log(`@rmul ${_n.toString()}`)
+
       const recur = m => cond([
-        [isZero, always(new Self(inf, inf))],
+        [isZero, id],
         [isEven, compose(double, recur, half)],
         [T, compose(inc(this), recur, sub1)],
       ])(m)
+      // ])(R.tap(console.log)(m))
 
       // return recur(n)
       return R.memoizeWith(x => x.toString(), recur)(n)
 
       function isZero (m) { return m.isZero() }
       function isEven (m) { return m.modulo(2).isZero() }
-      function half (m) { return m.dividedBy(2) }
-      function sub1 (m) { return m.minus(1) }
+      function half (m) {
+        // console.log(`halfing: ${m.toString()}`)
+        return m.dividedBy(2)
+      }
 
-      function double (point) { return point.add(point) }
+      function sub1 (m) {
+        // console.log(`sub1ing: ${m.toString()}`)
+        return m.minus(1)
+      }
+
+      function id () {
+        // console.log(`@id`)
+        return new Self(inf, inf)
+      }
+
+      function double (point) {
+        // console.log(`@double`)
+        // console.log(point.toString())
+        return point.add(point)
+      }
       function inc (unit) {
         return function (point) {
+          // console.log(`@inc`)
+          // console.log(unit.toString())
+          // console.log(point.toString())
           return point.add(unit)
         }
       }
     }
 
     static identity () { return new Self(inf, inf) }
+
+    static bn (x) { return bn(x) }
 
     static toBePoint (received, expected) {
       const pass = received instanceof Self &&

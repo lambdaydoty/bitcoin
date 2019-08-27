@@ -4,16 +4,20 @@ const _BN = require('bignumber.js')
 const INF = new _BN('Infinity')
 
 module.exports = (prime) => {
-  class Self extends _BN {
-    add (y) { return new Self(this.plus(y).modulo(Self.prime)) }
-    sub (y) { return new Self(this.minus(y).modulo(Self.prime)) }
-    mul (y) { return new Self(this.times(y).modulo(Self.prime)) }
+  class Field extends _BN {
+    constructor (val) {
+      super(new _BN(val).modulo(Field.prime))
+    }
+
+    add (y) { return new Field(this.plus(y).modulo(Field.prime)) }
+    sub (y) { return new Field(this.minus(y).modulo(Field.prime)) }
+    mul (y) { return new Field(this.times(y).modulo(Field.prime)) }
 
     exp (n) {
       if (typeof n !== 'number' && !(n instanceof _BN)) throw new Error(n)
-      // return new Self(this.pow(n).modulo(Self.prime))
+      // return new Field(this.pow(n).modulo(Field.prime))
       const recur = m => cond([
-        [isZero, always(new Self(1))],
+        [isZero, always(new Field(1))],
         [isEven, compose(square, recur, half)],
         [T, compose(lmul(this), recur, sub1)],
       ])(m)
@@ -34,7 +38,7 @@ module.exports = (prime) => {
       }
     }
 
-    inv () { return this.exp(Self.prime.minus(2)) } // Fermat
+    inv () { return this.exp(Field.prime.minus(2)) } // Fermat
 
     div (y) { return this.mul(y.inv()) }
 
@@ -45,18 +49,20 @@ module.exports = (prime) => {
     cub () { return this.mul(this).mul(this) }
 
     residue () {
-      return this // disable
-      // return this.isNegative()
-      //   ? this.modulo(BN._BASE).plus(BN._BASE)
-      //   : this
+      // return this // disable
+      return this.isNegative()
+        ? new Field(this.modulo(Field.prime).plus(Field.prime))
+        : this
     }
 
-    static sum (...operands) { return _BN.sum(...operands).modulo(Self.prime) }
+    isFF () { return true }
+
+    static sum (...operands) { return _BN.sum(...operands).modulo(Field.prime) }
   }
 
-  Self.prime = new _BN(prime)
-  Self.bn = x => new Self(x)
-  Self.inf = INF
+  Field.prime = new _BN(prime)
+  Field.bn = x => new Field(x)
+  Field.inf = INF
 
-  return Self
+  return Field
 }
