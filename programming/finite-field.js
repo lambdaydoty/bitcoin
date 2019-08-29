@@ -1,20 +1,23 @@
 const R = require('ramda')
 const { T, cond, always, compose } = R
-const _BN = require('bignumber.js')
-const INF = new _BN('Infinity')
+const BN = require('bignumber.js')
 
 module.exports = (prime) => {
-  class Field extends _BN {
+  class Field extends BN {
     constructor (val) {
-      super(new _BN(val).modulo(Field.prime))
+      super(new BN(val).modulo(Field.prime))
     }
+
+    to256BE () { return Buffer.from(this.toString(16).padStart(64, '0'), 'hex') }
 
     add (y) { return new Field(this.plus(y).modulo(Field.prime)) }
     sub (y) { return new Field(this.minus(y).modulo(Field.prime)) }
     mul (y) { return new Field(this.times(y).modulo(Field.prime)) }
+    half (y) { return new Field(this.dividedBy(2)) }
+    sub1 () { return this.sub(1) }
 
     exp (n) {
-      if (typeof n !== 'number' && !(n instanceof _BN)) throw new Error(n)
+      if (typeof n !== 'number' && !(n instanceof BN)) throw new Error(n)
       // return new Field(this.pow(n).modulo(Field.prime))
       const recur = m => cond([
         [isZero, always(new Field(1))],
@@ -57,12 +60,23 @@ module.exports = (prime) => {
 
     isFF () { return true }
 
-    static sum (...operands) { return _BN.sum(...operands).modulo(Field.prime) }
+    static sum (...operands) { return BN.sum(...operands).modulo(Field.prime) }
+
+    static toBeField (received, expected) {
+      const pass = received instanceof Field &&
+        received.eq(expected)
+      const passMessage = () => `expected ${received} not to be Field (${expected})`
+      const notPassMessage = () => `expected ${received} to be Field (${expected})`
+      return {
+        pass,
+        message: pass ? passMessage : notPassMessage,
+      }
+    }
   }
 
-  Field.prime = new _BN(prime)
+  Field.prime = new BN(prime)
+  Field.inf = new BN('Infinity')
   Field.bn = x => new Field(x)
-  Field.inf = INF
 
   return Field
 }

@@ -90,32 +90,66 @@ describe('Bitcoin', () => {
     //   privateAdd(2, 2):      ${secp.privateAdd(tweak, tweak).toString('hex')}
     // `)
 
-    const hex = '0xff0011'
-    // const hex = '0x2'
+    // const hex = 'ff0011'
+    const hex = '3'
     const field = Secp256k1.bn(hex)
     const tw = hexTo256BE(hex)
     expect(G.rmul(field).toCompress()).toEqual(secp.pointFromScalar(tw))
-
-    function hexTo256BE (hex) {
-      return Buffer.from(hex.replace('0x', '').padStart(64, '0'), 'hex')
-    }
   })
 
-  test('Exercise 6', () => {
+  function hexTo256BE (hex) {
+    return Buffer.from(hex.padStart(64, '0'), 'hex')
+  }
+
+  test.only('Exercise 6', () => {
+    // function der (r, s) {
+    //   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
+    //   const start = Buffer.from([0x30])
+    //   const marker = Buffer.from([0x02])
+    //   const length = x => Buffer.from([x.length])
+    //   const _r = Buffer.concat([sign(r), r])
+    //   const _s = Buffer.concat([sign(s), s])
+    //   const rs = Buffer.concat([
+    //     marker,
+    //     length(_r),
+    //     _r,
+    //     marker,
+    //     length(_s),
+    //     _s,
+    //   ])
+    //   return Buffer.concat([start, length(rs), rs])
+    // }
+    // der(
+    //   Buffer.from(r.toString(16), 'hex'),
+    //   Buffer.from(s.toString(16), 'hex'),
+    // ),
+
     function verify (P, z, r, s) {
-      // const u = z.div(s)
-      // const v = r.div(s)
-      // const uG = G.rmul(u)
-      // const vP = P.rmul(v)
-      // const SUM = uG.add(vP)
-      // console.log(uG.toString())
-      // console.log(vP.toString())
-      // console.log(SUM.toString())
-      return true
-      // const { _x } = uG.add(vP)
-      // console.log(_x.toString())
-      // console.log(r.toString())
-      // return _x.eq(r)
+      expect(secp.verify(
+        z.to256BE(),
+        P.toCompress(),
+        Buffer.concat([r.to256BE(), s.to256BE()]),
+      )).toBe(true)
+
+      const sInv = Secp256k1.bn(s.pow(order.minus(2), order))
+      const u = Secp256k1.bn(z.times(sInv).modulo(order))
+      const v = Secp256k1.bn(r.times(sInv).modulo(order))
+
+      console.log(`
+        O: ${order.toString(16)}
+        P: ${prime.toString(16)}
+        z: ${z.toString(16)}
+        r: ${r.toString(16)}
+        si: ${sInv.toString(16)}
+        u: ${u.toString(16)}
+        v: ${v.toString(16)}
+      `)
+
+      const uG = G.rmul(u)
+      const vP = P.rmul(v)
+      const SUM = uG.add(vP)
+      const { _x } = SUM
+      return _x.eq(r)
     }
 
     const P = pt(
@@ -126,6 +160,15 @@ describe('Bitcoin', () => {
     const r = Secp256k1.bn('0xac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395')
     const s = Secp256k1.bn('0x68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4')
 
+    // const z = Secp256k1.bn('0x7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d')
+    // const r = Secp256k1.bn('0xeff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c')
+    // const s = Secp256k1.bn('0xc7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6')
+
+    // const z = Secp256k1.bn('0x0')
+    // const r = Secp256k1.bn('0x37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6')
+    // const s = Secp256k1.bn('0x8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec')
+
+    // verify(P, z, r, s)
     expect(verify(P, z, r, s)).toBe(true)
   })
 })

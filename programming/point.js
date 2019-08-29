@@ -1,5 +1,6 @@
 const R = require('ramda')
 const { T, cond, compose } = R
+const { pipe, always } = R
 const ff = require('./finite-field')
 
 module.exports = (a, b, p, order = null) => {
@@ -37,6 +38,7 @@ module.exports = (a, b, p, order = null) => {
 
     toString () { return `(${this._x.toString()}, ${this._y.toString()})` }
     toCompress () {
+      if (this.isId()) return null
       const even = Buffer.from([0x02])
       const odd = Buffer.from([0x03])
       const x = Buffer.from(this._x.toString(16).padStart(64, '0'), 'hex')
@@ -72,32 +74,60 @@ module.exports = (a, b, p, order = null) => {
     }
 
     rmul (_n) {
-      const n = Self.order
-        ? bn(_n).modulo(Self.order) // modulo Group order if provided!
-        : bn(_n)
+      const n = _n
+      // const n = Self.order
+      //   ? bn(_n).modulo(Self.order) // modulo Group order if provided!
+      //   : bn(_n)
 
       // console.log(`@rmul ${_n.toString()}`)
 
-      const recur = m => cond([
-        [isZero, id],
-        [isEven, compose(double, recur, half)],
-        [T, compose(inc(this), recur, sub1)],
-      ])(m)
-      // ])(R.tap(console.log)(m))
+      const recur = m => pipe(
+        always(m),
+        // R.tap(x => console.log(x.toString())),
+        cond([
+          [isZero, id],
+          [isEven, compose(double, recur, half)],
+          [T, compose(inc(this), recur, sub1)],
+        ]),
+        R.tap(check(this, m)),
+      )()
 
       // return recur(n)
       return R.memoizeWith(x => x.toString(), recur)(n)
 
+      function check (pt, m) {
+        return function (answer) {
+          const secp = require('tiny-secp256k1')
+          const solution = secp.pointMultiply(pt.toCompress(), m.to256BE())
+          if (!answer.toCompress() && !solution) return
+          // console.log(`
+          //   answer:   ${answer.toCompress().toString('hex')}
+          //   solution: ${solution.toString('hex')}
+          // `)
+          if (!answer.toCompress().equals(solution)) {
+            console.log(`
+            point: ${pt.toString()}
+            m: ${m.toString()}
+            answer:   ${answer.toString()}
+            solution: ${solution.toString('hex')}
+            `)
+            throw new Error()
+          }
+        }
+      }
+
       function isZero (m) { return m.isZero() }
       function isEven (m) { return m.modulo(2).isZero() }
+
       function half (m) {
         // console.log(`halfing: ${m.toString()}`)
-        return m.dividedBy(2)
+        // console.log(`isFF? ${m.isFF()}`)
+        return m.half()
       }
 
       function sub1 (m) {
         // console.log(`sub1ing: ${m.toString()}`)
-        return m.minus(1)
+        return m.sub1()
       }
 
       function id () {
