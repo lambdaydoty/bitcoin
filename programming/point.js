@@ -1,85 +1,93 @@
 const R = require('ramda')
 const { T, cond, compose } = R
 const { pipe, always } = R
-const ff = require('./finite-field')
+const { unless } = R
+const BN = require('bn.js')
 
-module.exports = (a, b, p, order = null) => {
-  const BN = ff(p)
-  const { inf } = BN
-  const bn = x => new BN(x)
+module.exports = (_a, _b, _p) => {
+  const _0 = new BN(0)
+  const _1 = new BN(1)
+  const _2 = new BN(2)
+  const _3 = new BN(3)
+  const PRIME = new BN(_p)
+  const red = BN.red(PRIME)
+  const bn = (...x) => new BN(...x).toRed(red)
+  const a = bn(_a)
+  const b = bn(_b)
+  const r0 = bn(0)
+  const r1 = bn(1)
+  const r2 = bn(2)
+  const r3 = bn(3)
+  const sum = (...args) => args.reduce(
+    (acc, curr) => acc.redAdd(curr),
+    r0,
+  )
+
+  // const ORDER = order ? new BN(order) : null
 
   class Self {
-    constructor (x, y) {
-      if (x.isEqualTo && x.isEqualTo(inf) &&
-        y.isEqualTo && y.isEqualTo(inf)) {
+    constructor (_x, _y) {
+      if (!_x && !_y) {
+        // identity
+        this._x = this._y = null
+      } else if (_x && _y) {
+        const bnIfNeed = unless(BN.isBN, bn)
+        const x = bnIfNeed(_x)
+        const y = bnIfNeed(_y)
+        if (!compatible(x, y, a, b)) throw new Error({ x, y, a, b })
         this._x = x
         this._y = y
       } else {
-        if (!compatible(x, y, a, b)) throw new Error({ x, y, a, b })
-        this._x = bn(x).residue()
-        this._y = bn(y).residue()
-        if (!this._x.isFF() || !this._y.isFF()) throw new Error(`${this._x} ${this._y}`)
+        throw new Error({ _x, _y })
       }
 
       function compatible (x, y, a, b) {
-        // console.log(`a: ${a.toString()}`)
-        // console.log(`b: ${b.toString()}`)
-        // console.log(`p: ${p.toString()}`)
-        // console.log(`x: ${x.toString()}`)
-        // console.log(`y: ${y.toString()}`)
+        // console.log({ x, y, a, b })
         // y^2 = x^3 + ax + b
-        return bn(y).sqr().eq(BN.sum(
-          bn(x).cub(),
-          bn(a).mul(x),
-          bn(b),
+        return y.redSqr().eq(sum(
+          x.redPow(_3),
+          a.redMul(x),
+          b,
         ))
       }
     }
 
-    toString () { return `(${this._x.toString()}, ${this._y.toString()})` }
-    toCompress () {
-      if (this.isId()) return null
-      const even = Buffer.from([0x02])
-      const odd = Buffer.from([0x03])
-      const x = Buffer.from(this._x.toString(16).padStart(64, '0'), 'hex')
-      const prefix = this._y.modulo(2).isEqualTo(0) ? even : odd
-      const compressed = Buffer.concat([prefix, x])
-      return compressed
+    toString () { return this.isId() ? 'O' : `(${this._x.toString()}, ${this._y.toString()})` }
+
+    isId () { return !this._x && !this._y }
+
+    eq (that) {
+      if (this.isId() && that.isId()) return true
+      if (this.isId() || that.isId()) return false
+      return this._x.eq(that._x) && this._y.eq(that._y)
     }
 
-    eq (that) { return this._x.eq(that._x) && this._y.eq(that._y) }
     neq (that) { return !this.eq(that) }
-
-    isId () { return this._x.isEqualTo(inf) && this._y.isEqualTo(inf) }
 
     add (that) {
       if (this.isId()) return new Self(that._x, that._y)
       if (that.isId()) return new Self(this._x, this._y)
-      if (this._x.eq(that._x) && this._y.neq(that._y)) return new Self(inf, inf) // P + (-P)
+      if (this._x.eq(that._x) && !this._y.eq(that._y)) return Self.id() // P + (-P)
 
       const s = slope(this, that)
-      const x = s.sqr().sub(this._x).sub(that._x)
-      const y = s.mul(this._x.sub(x)).sub(this._y)
-      return new Self(x, y) // XXX: check Self(inf, inf)
+      const x = s.redSqr().redSub(this._x).redSub(that._x)
+      const y = s.redMul(this._x.redSub(x)).redSub(this._y)
+      return new Self(x, y)
 
       function slope (p, q) {
         const { _x: x1, _y: y1 } = p
         const { _x: x2, _y: y2 } = q
-        const dy = y2.sub(y1)
-        const dx = x2.sub(x1)
-        return dx.neq(0)
-          ? dy.div(dx) // secant line
-          : x1.sqr().mul(3).add(a).div(y1.mul(2)) // tangent line (possible inf)
+        const dy = y2.redSub(y1)
+        const dx = x2.redSub(x1)
+        return !dx.eq(r0)
+          ? dy.redMul(dx.redInvm()) // secant line
+          : x1.redSqr().redMul(r3).redAdd(a).redMul(y1.redMul(r2).redInvm())
+        // tangent line (possible inf) // TODO inf
       }
     }
 
-    rmul (_n) {
-      const n = _n
-      // const n = Self.order
-      //   ? bn(_n).modulo(Self.order) // modulo Group order if provided!
-      //   : bn(_n)
-
-      // console.log(`@rmul ${_n.toString()}`)
+    rmul (/* Zn of order order */ _n) {
+      const n = new BN(_n)
 
       const recur = m => pipe(
         always(m),
@@ -89,70 +97,47 @@ module.exports = (a, b, p, order = null) => {
           [isEven, compose(double, recur, half)],
           [T, compose(inc(this), recur, sub1)],
         ]),
-        R.tap(check(this, m)),
+        // R.tap(check(this, m)),
       )()
 
-      // return recur(n)
-      return R.memoizeWith(x => x.toString(), recur)(n)
-
-      function check (pt, m) {
-        return function (answer) {
-          const secp = require('tiny-secp256k1')
-          const solution = secp.pointMultiply(pt.toCompress(), m.to256BE())
-          if (!answer.toCompress() && !solution) return
-          // console.log(`
-          //   answer:   ${answer.toCompress().toString('hex')}
-          //   solution: ${solution.toString('hex')}
-          // `)
-          if (!answer.toCompress().equals(solution)) {
-            console.log(`
-            point: ${pt.toString()}
-            m: ${m.toString()}
-            answer:   ${answer.toString()}
-            solution: ${solution.toString('hex')}
-            `)
-            throw new Error()
-          }
-        }
-      }
+      return recur(n)
+      // return R.memoizeWith(x => x.toString(), recur)(n)
 
       function isZero (m) { return m.isZero() }
-      function isEven (m) { return m.modulo(2).isZero() }
+      function isEven (m) { return m.isEven() }
 
-      function half (m) {
-        // console.log(`halfing: ${m.toString()}`)
-        // console.log(`isFF? ${m.isFF()}`)
-        return m.half()
-      }
+      function half (m) { return m.div(_2) }
+      function sub1 (m) { return m.sub(_1) }
 
-      function sub1 (m) {
-        // console.log(`sub1ing: ${m.toString()}`)
-        return m.sub1()
-      }
+      function id () { return Self.id() }
+      function double (point) { return point.add(point) }
+      function inc (unit) { return point => point.add(unit) }
 
-      function id () {
-        // console.log(`@id`)
-        return new Self(inf, inf)
-      }
-
-      function double (point) {
-        // console.log(`@double`)
-        // console.log(point.toString())
-        return point.add(point)
-      }
-      function inc (unit) {
-        return function (point) {
-          // console.log(`@inc`)
-          // console.log(unit.toString())
-          // console.log(point.toString())
-          return point.add(unit)
-        }
-      }
+      // function check (pt, m) {
+      //   return function (answer) {
+      //     const secp = require('tiny-secp256k1')
+      //     const solution = secp.pointMultiply(pt.toCompress(), m.to256BE())
+      //     if (!answer.toCompress() && !solution) return
+      //     // console.log(`
+      //     //   answer:   ${answer.toCompress().toString('hex')}
+      //     //   solution: ${solution.toString('hex')}
+      //     // `)
+      //     if (!answer.toCompress().equals(solution)) {
+      //       console.log(`
+      //       point: ${pt.toString()}
+      //       m: ${m.toString()}
+      //       answer:   ${answer.toString()}
+      //       solution: ${solution.toString('hex')}
+      //       `)
+      //       throw new Error()
+      //     }
+      //   }
+      // }
     }
 
-    static identity () { return new Self(inf, inf) }
+    static id () { return new Self() }
 
-    static bn (x) { return bn(x) }
+    static bn (...x) { return bn(...x) }
 
     static toBePoint (received, expected) {
       const pass = received instanceof Self &&
@@ -166,7 +151,7 @@ module.exports = (a, b, p, order = null) => {
     }
   }
 
-  Self.order = order
+  // Self.order = order
 
   return Self
 }
