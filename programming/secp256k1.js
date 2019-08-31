@@ -28,12 +28,12 @@ const G = new Secp256k1(
   Secp256k1.bn('483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8', 16),
 )
 
-const I = Secp256k1.id()
+const O = Secp256k1.id()
 
 module.exports = {
   N: ORDER,
   P: PRIME,
-  I,
+  O,
   G,
   gn,
   bn: Secp256k1.bn,

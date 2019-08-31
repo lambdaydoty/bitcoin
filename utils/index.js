@@ -1,18 +1,9 @@
-const BN = require('bignumber.js')
+module.exports = { hexToBE }
 
-function bn (value) {
-  const _val = value instanceof Buffer
-    ? `0x${value.toString('hex')}`
-    : value.toString()
-  return new BN(_val)
+function hexToBE (hex, bits = 256) {
+  const norm = hex
+    .replace(/^0x/g, '')
+    .replace(/(\n|\s)/mg, '')
+    .padStart(bits / 4, '0')
+  return Buffer.from(norm, 'hex')
 }
-
-BN.prototype.toBigEndian = function (bits = 256) {
-  const nibble = bits / 4
-  return Buffer.from(
-    this.toString(16).padStart(nibble, '0').slice(-nibble),
-    'hex',
-  )
-}
-
-module.exports = { bn }

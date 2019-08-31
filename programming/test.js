@@ -1,7 +1,8 @@
 /* eslint-env jest */
 
 const point = require('./point')
-// const secp = require('tiny-secp256k1')
+const { hexToBE } = require('../utils')
+const hexTo256BE = h => hexToBE(h, 256)
 
 describe('Small curves', () => {
   // point(a, b, p): y^2 = x^3 + ax + b mod p
@@ -45,28 +46,26 @@ describe('Small curves', () => {
 
   test('Exercise 5', () => {
     const G = pt(15, 86)
-    const I = id
+    const O = id
 
     let i = null
-    for (i = 1; G.rmul(i).neq(I); ++i) {}
+    for (i = 1; G.rmul(i).neq(O); ++i) {}
     expect(i).toBe(7)
   })
 })
 
 describe('Bitcoin', () => {
-  const { Secp256k1, I, G, N, bn, gn } = require('./secp256k1')
+  const { Secp256k1, O, G, N, bn, gn } = require('./secp256k1')
+  const { verify } = require('./ecdsa')
   const pt = (x, y) => new Secp256k1(x, y)
-  function hexTo256BE (hex) {
-    return Buffer.from(hex.padStart(64, '0'), 'hex')
-  }
 
   beforeAll(() => {
     expect.extend({ toBePoint: Secp256k1.toBePoint })
   })
 
   test('Secp256k1', () => {
-    expect(G.rmul(N)).toBePoint(I)
-    expect(G.rmul(0)).toBePoint(I)
+    expect(G.rmul(N)).toBePoint(O)
+    expect(G.rmul(0)).toBePoint(O)
     expect(G.rmul(1)).toBePoint(G)
     expect(G.toCompress()).toEqual(hexTo256BE('0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'))
   })
@@ -93,18 +92,6 @@ describe('Bitcoin', () => {
     //   Buffer.from(r.toString(16), 'hex'),
     //   Buffer.from(s.toString(16), 'hex'),
     // ),
-
-    function verify ({ P, z, r, s }) {
-      const sInv = s.redInvm()
-      const u = z.redMul(sInv)
-      const v = r.redMul(sInv)
-
-      const uG = G.rmul(u.fromRed())
-      const vP = P.rmul(v.fromRed())
-      const SUM = uG.add(vP)
-      const { _x } = SUM
-      return _x.eq(r) // XXX: check _x vs r
-    }
 
     const P = pt(
       bn('887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c', 16),
