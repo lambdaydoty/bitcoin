@@ -8,6 +8,8 @@ const _977 = new BN(977)
 
 const PRIME = _2.pow(_256).sub(_2.pow(_32)).sub(_977)
 const ORDER = new BN('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 16)
+const red = BN.red(ORDER)
+const gn = (...x) => new BN(...x).toRed(red)
 
 class Secp256k1 extends point(0, 7, PRIME) {
   toCompress () {
@@ -33,5 +35,7 @@ module.exports = {
   P: PRIME,
   I,
   G,
+  gn,
+  bn: Secp256k1.bn,
   Secp256k1,
 }

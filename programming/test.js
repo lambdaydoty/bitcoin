@@ -1,6 +1,5 @@
 /* eslint-env jest */
 
-const BN = require('bn.js')
 const point = require('./point')
 // const secp = require('tiny-secp256k1')
 
@@ -55,7 +54,7 @@ describe('Small curves', () => {
 })
 
 describe('Bitcoin', () => {
-  const { Secp256k1, I, G, N } = require('./secp256k1')
+  const { Secp256k1, I, G, N, bn, gn } = require('./secp256k1')
   const pt = (x, y) => new Secp256k1(x, y)
   function hexTo256BE (hex) {
     return Buffer.from(hex.padStart(64, '0'), 'hex')
@@ -95,7 +94,7 @@ describe('Bitcoin', () => {
     //   Buffer.from(s.toString(16), 'hex'),
     // ),
 
-    function verify (P, z, r, s) {
+    function verify ({ P, z, r, s }) {
       const sInv = s.redInvm()
       const u = z.redMul(sInv)
       const v = r.redMul(sInv)
@@ -108,16 +107,24 @@ describe('Bitcoin', () => {
     }
 
     const P = pt(
-      Secp256k1.bn('887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c', 16),
-      Secp256k1.bn('61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34', 16),
+      bn('887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c', 16),
+      bn('61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34', 16),
     )
 
-    const red = BN.red(N)
-    const z = new BN('ec208baa0fc1c19f708a9ca96fdeff3ac3f230bb4a7ba4aede4942ad003c0f60', 16).toRed(red)
-    const s = new BN('68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4', 16).toRed(red)
-    const r = new BN('ac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395', 16).toRed(red)
+    const sig1 = {
+      z: gn('ec208baa0fc1c19f708a9ca96fdeff3ac3f230bb4a7ba4aede4942ad003c0f60', 16),
+      s: gn('68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4', 16),
+      r: gn('ac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395', 16),
+    }
+
+    const sig2 = {
+      z: gn('7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d', 16),
+      s: gn('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6', 16),
+      r: gn('eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c', 16),
+    }
 
     // verify(P, z, r, s)
-    expect(verify(P, z, r, s)).toBe(true)
+    expect(verify({ P, ...sig1 })).toBe(true)
+    expect(verify({ P, ...sig2 })).toBe(true)
   })
 })

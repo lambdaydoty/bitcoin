@@ -5,7 +5,6 @@ const { unless } = R
 const BN = require('bn.js')
 
 module.exports = (_a, _b, _p) => {
-  const _0 = new BN(0)
   const _1 = new BN(1)
   const _2 = new BN(2)
   const _3 = new BN(3)
@@ -15,7 +14,6 @@ module.exports = (_a, _b, _p) => {
   const a = bn(_a)
   const b = bn(_b)
   const r0 = bn(0)
-  const r1 = bn(1)
   const r2 = bn(2)
   const r3 = bn(3)
   const sum = (...args) => args.reduce(
