@@ -1,7 +1,7 @@
 /* eslint-env jest */
 
 const point = require('./point')
-const { hexToBE } = require('../utils')
+const { hexToBE, nToBE, hash256 } = require('../utils')
 const hexTo256BE = h => hexToBE(h, 256)
 
 describe('Small curves', () => {
@@ -55,8 +55,8 @@ describe('Small curves', () => {
 })
 
 describe('Bitcoin', () => {
-  const { Secp256k1, O, G, N, bn, gn } = require('./secp256k1')
-  const { verify } = require('./ecdsa')
+  const { Secp256k1, O, G, N, bn } = require('./secp256k1')
+  const { verify, sign } = require('./ecdsa')
   const pt = (x, y) => new Secp256k1(x, y)
 
   beforeAll(() => {
@@ -70,7 +70,7 @@ describe('Bitcoin', () => {
     expect(G.toCompress()).toEqual(hexTo256BE('0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'))
   })
 
-  test('Exercise 6', () => {
+  test.only('Exercise 6: verify', () => {
     // function der (r, s) {
     //   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
     //   const start = Buffer.from([0x30])
@@ -99,19 +99,33 @@ describe('Bitcoin', () => {
     )
 
     const sig1 = {
-      z: gn('ec208baa0fc1c19f708a9ca96fdeff3ac3f230bb4a7ba4aede4942ad003c0f60', 16),
-      s: gn('68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4', 16),
-      r: gn('ac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395', 16),
+      z: hexTo256BE('ec208baa0fc1c19f708a9ca96fdeff3ac3f230bb4a7ba4aede4942ad003c0f60'),
+      r: hexTo256BE('ac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a395'),
+      s: hexTo256BE('68342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4'),
     }
 
     const sig2 = {
-      z: gn('7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d', 16),
-      s: gn('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6', 16),
-      r: gn('eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c', 16),
+      z: hexTo256BE('7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d'),
+      r: hexTo256BE('eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c'),
+      s: hexTo256BE('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6'),
     }
 
-    // verify(P, z, r, s)
-    expect(verify({ P, ...sig1 })).toBe(true)
-    expect(verify({ P, ...sig2 })).toBe(true)
+    expect(verify(P, sig1.z, sig1.r, sig1.s)).toBe(true)
+    expect(verify(P, sig2.z, sig2.r, sig2.s)).toBe(true)
+  })
+
+  test.only('Exercise 7: sign', () => {
+    const e = nToBE(12345)
+    const z = hash256(Buffer.from('Programming Bitcoin!'))
+    const k = nToBE(1234567890)
+    const { r, s, P } = sign(e, z, k)
+    expect(r)
+      .toEqual(hexToBE('2b698a0f0a4041b77e63488ad48c23e8e8838dd1fb7520408b121697b782ef22'))
+    expect(s)
+      .toEqual(hexToBE('1dbc63bfef4416705e602a7b564161167076d8b20990a0f26f316cff2cb0bc1a'))
+    expect(P._x.toString(16))
+      .toBe('f01d6b9018ab421dd410404cb869072065522bf85734008f105cf385a023a80f')
+    expect(P._y.toString(16))
+      .toBe('eba29d0f0c5408ed681984dc525982abefccd9f7ff01dd26da4999cf3f6a295')
   })
 })
