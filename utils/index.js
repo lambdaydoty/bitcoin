@@ -2,13 +2,17 @@ const R = require('ramda')
 const BN = require('bn.js')
 const crypto = require('crypto')
 const { o } = R
+const { curryN } = R
 
 module.exports = {
   nToBE,
   hash256: o(sha256, sha256),
+  hash160: o(ripemd160, sha256),
   sha256,
+  ripemd160,
   toHex,
   hexToBE,
+  concat: curryN(2, (x, y) => Buffer.concat([x, y])), // TODO
 }
 
 function nToBE (n, bits = 256) {
@@ -18,6 +22,13 @@ function nToBE (n, bits = 256) {
 function sha256 (b) {
   return crypto
     .createHash('sha256')
+    .update(b)
+    .digest()
+}
+
+function ripemd160 (b) {
+  return crypto
+    .createHash('ripemd160')
     .update(b)
     .digest()
 }

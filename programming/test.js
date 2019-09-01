@@ -166,4 +166,40 @@ describe('Serialization', () => {
       'hex',
     ))
   })
+
+  test.only('Exercise 5', () => {
+    const base58check = require('./base58check')
+    const { hash160 } = require('../utils')
+
+    console.log({ hash160 })
+
+    const MAINNET = Buffer.from([0x00])
+    const TESTNET = Buffer.from([0x6f])
+
+    Buffer.prototype.toBs58ck = function (prefix) { return base58check(prefix, this) }
+    Buffer.prototype.toHash160 = function () { return hash160(this) }
+
+    const priv1 = 5002
+    const priv2 = gn(2020).redPow(_5)
+    const priv3 = gn('12345deadbeef', 16)
+
+    expect(G
+      .rmul(priv1) // to public key
+      .toSEC(false) // to uncompressed public key
+      .toHash160() // to uncompressed public key hash
+      .toBs58ck(TESTNET) // to address
+    ).toBe('mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA')
+    expect(G
+      .rmul(priv2)
+      .toSEC()
+      .toHash160()
+      .toBs58ck(TESTNET)
+    ).toBe('mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH')
+    expect(G
+      .rmul(priv3)
+      .toSEC()
+      .toHash160()
+      .toBs58ck(MAINNET)
+    ).toBe('1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1')
+  })
 })
