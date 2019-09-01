@@ -72,21 +72,6 @@ describe('Bitcoin', () => {
 
   test('Exercise 6: verify', () => {
     // function der (r, s) {
-    //   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
-    //   const start = Buffer.from([0x30])
-    //   const marker = Buffer.from([0x02])
-    //   const length = x => Buffer.from([x.length])
-    //   const _r = Buffer.concat([sign(r), r])
-    //   const _s = Buffer.concat([sign(s), s])
-    //   const rs = Buffer.concat([
-    //     marker,
-    //     length(_r),
-    //     _r,
-    //     marker,
-    //     length(_s),
-    //     _s,
-    //   ])
-    //   return Buffer.concat([start, length(rs), rs])
     // }
     // der(
     //   Buffer.from(r.toString(16), 'hex'),
@@ -131,6 +116,7 @@ describe('Bitcoin', () => {
 })
 
 describe('Serialization', () => {
+  const { toDER } = require('./ecdsa')
   const { Secp256k1, G, gn } = require('./secp256k1')
   const BN = require('bn.js')
   const _5 = new BN(5)
@@ -170,5 +156,14 @@ describe('Serialization', () => {
     expect(Secp256k1.fromSEC(cP1)).toBePoint(G.rmul(priv1))
     expect(Secp256k1.fromSEC(cP2)).toBePoint(G.rmul(priv2))
     expect(Secp256k1.fromSEC(cP3)).toBePoint(G.rmul(priv3))
+  })
+
+  test('Exercise 3', () => {
+    expect(toDER(
+      hexTo256BE('37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6'),
+      hexTo256BE('8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec'),
+    )).toEqual(Buffer.from('3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec',
+      'hex',
+    ))
   })
 })

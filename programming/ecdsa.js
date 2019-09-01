@@ -3,13 +3,14 @@ const crypto = require('crypto')
 const { G, Secp256k1, gn } = require('./secp256k1')
 const { toHex } = require('../utils')
 
-module.exports = { verify, sign }
+module.exports = { verify, sign, toDER }
 
 function verify (
   P, /* Point: public key */
   _z, /* Buffer: message */
   _r, /* Buffer */
   _s, /* Buffer */
+  _der, /* Buffer */
 ) {
   assert.strictEqual(P instanceof Secp256k1, true)
   assert.strictEqual(Buffer.isBuffer(_z), true)
@@ -59,5 +60,28 @@ function sign (
     r: r.toBuffer('be', 256 / 8),
     s: s.toBuffer('be', 256 / 8),
     P,
+    toDER,
   })
+}
+
+function toDER (_r, _s) {
+  const r = this.r || _r
+  const s = this.s || _s
+
+  assert.strictEqual(Buffer.isBuffer(r) && r.length === 32, true)
+  assert.strictEqual(Buffer.isBuffer(s) && s.length === 32, true)
+
+  const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
+  const length = x => Buffer.from([x.length])
+  const START = Buffer.from([0x30])
+  const MARKER = Buffer.from([0x02])
+  const signedR = Buffer.concat([sign(r), r])
+  const signedS = Buffer.concat([sign(s), s])
+  const rs = Buffer.concat([
+    MARKER, length(signedR), signedR,
+    MARKER, length(signedS), signedS,
+  ])
+  return Buffer.concat([
+    START, length(rs), rs,
+  ])
 }
