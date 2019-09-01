@@ -67,10 +67,10 @@ describe('Bitcoin', () => {
     expect(G.rmul(N)).toBePoint(O)
     expect(G.rmul(0)).toBePoint(O)
     expect(G.rmul(1)).toBePoint(G)
-    expect(G.toCompress()).toEqual(hexTo256BE('0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'))
+    expect(G.toSEC()).toEqual(hexToBE('0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'))
   })
 
-  test.only('Exercise 6: verify', () => {
+  test('Exercise 6: verify', () => {
     // function der (r, s) {
     //   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
     //   const start = Buffer.from([0x30])
@@ -114,7 +114,7 @@ describe('Bitcoin', () => {
     expect(verify(P, sig2.z, sig2.r, sig2.s)).toBe(true)
   })
 
-  test.only('Exercise 7: sign', () => {
+  test('Exercise 7: sign', () => {
     const e = nToBE(12345)
     const z = hash256(Buffer.from('Programming Bitcoin!'))
     const k = nToBE(1234567890)
@@ -127,5 +127,48 @@ describe('Bitcoin', () => {
       .toBe('f01d6b9018ab421dd410404cb869072065522bf85734008f105cf385a023a80f')
     expect(P._y.toString(16))
       .toBe('eba29d0f0c5408ed681984dc525982abefccd9f7ff01dd26da4999cf3f6a295')
+  })
+})
+
+describe('Serialization', () => {
+  const { Secp256k1, G, gn } = require('./secp256k1')
+  const BN = require('bn.js')
+  const _5 = new BN(5)
+
+  beforeAll(() => {
+    expect.extend({ toBePoint: Secp256k1.toBePoint })
+  })
+
+  test('Exercise 1', () => {
+    const priv1 = 5000
+    const priv2 = gn(2018).redPow(_5)
+    const priv3 = gn('deadbeef12345', 16)
+    expect(G.rmul(priv1).toSEC(false)).toEqual(Buffer.from(
+      '04ffe558e388852f0120e46af2d1b370f85854a8eb0841811ece0e3e03d282d57c315dc72890a4f10a1481c031b03b351b0dc79901ca18a00cf009dbdb157a1d10',
+      'hex',
+    ))
+    expect(G.rmul(priv2).toSEC(false)).toEqual(Buffer.from(
+      '04027f3da1918455e03c46f659266a1bb5204e959db7364d2f473bdf8f0a13cc9dff87647fd023c13b4a4994f17691895806e1b40b57f4fd22581a4f46851f3b06',
+      'hex',
+    ))
+    expect(G.rmul(priv3).toSEC(false)).toEqual(Buffer.from(
+      '04d90cd625ee87dd38656dd95cf79f65f60f7273b67d3096e68bd81e4f5342691f842efa762fd59961d0e99803c61edba8b3e3f7dc3a341836f97733aebf987121',
+      'hex',
+    ))
+  })
+
+  test('Exercise 2', () => {
+    const priv1 = 5001
+    const priv2 = gn(2019).redPow(_5)
+    const priv3 = gn('deadbeef54321', 16)
+    const cP1 = Buffer.from('0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1', 'hex')
+    const cP2 = Buffer.from('02933ec2d2b111b92737ec12f1c5d20f3233a0ad21cd8b36d0bca7a0cfa5cb8701', 'hex')
+    const cP3 = Buffer.from('0296be5b1292f6c856b3c5654e886fc13511462059089cdf9c479623bfcbe77690', 'hex')
+    expect(G.rmul(priv1).toSEC()).toEqual(cP1)
+    expect(G.rmul(priv2).toSEC()).toEqual(cP2)
+    expect(G.rmul(priv3).toSEC()).toEqual(cP3)
+    expect(Secp256k1.fromSEC(cP1)).toBePoint(G.rmul(priv1))
+    expect(Secp256k1.fromSEC(cP2)).toBePoint(G.rmul(priv2))
+    expect(Secp256k1.fromSEC(cP3)).toBePoint(G.rmul(priv3))
   })
 })

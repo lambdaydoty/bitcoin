@@ -50,7 +50,7 @@ module.exports = (_a, _b, _p) => {
       }
     }
 
-    toString () { return this.isId() ? 'O' : `(${this._x.toString()}, ${this._y.toString()})` }
+    toString () { return this.isId() ? 'O' : `(${this._x.toString(16)}, ${this._y.toString(16)})` }
 
     isId () { return !this._x && !this._y }
 

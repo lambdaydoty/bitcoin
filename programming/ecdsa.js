@@ -7,7 +7,7 @@ module.exports = { verify, sign }
 
 function verify (
   P, /* Point: public key */
-  _z, /* Buffer: digest */
+  _z, /* Buffer: message */
   _r, /* Buffer */
   _s, /* Buffer */
 ) {
@@ -35,8 +35,8 @@ function verify (
 }
 
 function sign (
-  _e, /* private key */
-  _z,
+  _e, /* Buffer: private key */
+  _z, /* Buffer: message */
   _k = null,
 ) {
   assert.strictEqual(Buffer.isBuffer(_e), true)
