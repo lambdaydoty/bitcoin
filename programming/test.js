@@ -167,16 +167,22 @@ describe('Serialization', () => {
     ))
   })
 
-  test.only('Exercise 5', () => {
+  test('Exercise 4', () => {
+    const bs58 = require('bs58')
+    const b = hexToBE('eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c')
+    expect(bs58.encode(hexToBE('7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d'))).toBe('9MA8fRQrT4u8Zj8ZRd6MAiiyaxb2Y1CMpvVkHQu5hVM6')
+    expect(bs58.encode(b)).toBe('4fE3H2E6XMp4SsxtwinF7w9a34ooUrwWe4WsW1458Pd')
+    expect(bs58.encode(hexToBE('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6'))).toBe('EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7')
+  })
+
+  test('Exercise 5', () => {
     const base58check = require('./base58check')
     const { hash160 } = require('../utils')
-
-    console.log({ hash160 })
 
     const MAINNET = Buffer.from([0x00])
     const TESTNET = Buffer.from([0x6f])
 
-    Buffer.prototype.toBs58ck = function (prefix) { return base58check(prefix, this) }
+    Buffer.prototype.toBs58ck = function (prefix) { return base58check(prefix)(this) }
     Buffer.prototype.toHash160 = function () { return hash160(this) }
 
     const priv1 = 5002
@@ -201,5 +207,58 @@ describe('Serialization', () => {
       .toHash160()
       .toBs58ck(MAINNET)
     ).toBe('1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1')
+  })
+
+  test('Exercise 6', () => {
+    const base58check = require('./base58check')
+
+    const MAINNET = Buffer.from([0x80])
+    const TESTNET = Buffer.from([0xef])
+
+    Buffer.prototype.toBs58ck = function (prefix, suffix) {
+      return base58check(prefix, suffix)(this)
+    }
+
+    const COMPRESSED_PUB_SEC = Buffer.from([0x01])
+    const UNCOMPRESSED_PUB_SEC = Buffer.from([])
+
+    const priv1 = gn(5003)
+    const priv2 = gn(2021).redPow(_5)
+    const priv3 = gn('54321deadbeef', 16)
+
+    expect(priv1.toBuffer('be', 256 / 8)
+      .toBs58ck(TESTNET, COMPRESSED_PUB_SEC)
+    ).toBe('cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK')
+
+    expect(priv2.toBuffer('be', 256 / 8)
+      .toBs58ck(TESTNET, UNCOMPRESSED_PUB_SEC)
+    ).toBe('91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic')
+
+    expect(priv3.toBuffer('be', 256 / 8)
+      .toBs58ck(MAINNET, COMPRESSED_PUB_SEC)
+    ).toBe('KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a')
+  })
+})
+
+describe('Transaction', () => {
+  const Transaction = require('./transaction')
+  const { bToStream } = require('../utils')
+
+  beforeAll(() => {
+    // expect.extend({ toBePoint: Secp256k1.toBePoint })
+  })
+
+  test.only('Exercise 1', () => {
+    const hexTrxs = require('./trxs')
+    const stream = bToStream(Buffer.from(hexTrxs[0], 'hex'))
+    const trx = Transaction.parse(stream)
+    console.log(`${trx}`)
+
+    const varInt1 = bToStream(Buffer.from('6a', 'hex'))
+    const varInt2 = bToStream(Buffer.from('fd2602', 'hex'))
+    const varInt3 = bToStream(Buffer.from('fe703a0f00', 'hex'))
+    expect(Transaction.varintToN(varInt1)).toBe(106)
+    expect(Transaction.varintToN(varInt2)).toBe(550)
+    expect(Transaction.varintToN(varInt3)).toBe(998000)
   })
 })
