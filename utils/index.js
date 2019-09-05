@@ -4,8 +4,10 @@ const BN = require('bn.js')
 const crypto = require('crypto')
 const { o } = R
 const { curryN } = R
+const { tryCatch, always } = R
 
 module.exports = {
+  safeEval,
   bToStream,
   bToBN,
   nToBE,
@@ -18,6 +20,23 @@ module.exports = {
   hexToBE,
   concat,
   concatN,
+}
+
+/*
+ * Prototyping Buffer
+ */
+Buffer.prototype.reverse = function () {
+  return Buffer.from(
+    this.toString('hex').match(/.{2}/g).reverse().join(''),
+    'hex',
+  )
+}
+Buffer.prototype.toBN = function (endianness) {
+  return bToBN(endianness)(this)
+}
+
+function safeEval (fn) {
+  return tryCatch(fn, always(null))
 }
 
 function concat (...args) {

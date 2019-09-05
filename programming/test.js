@@ -248,17 +248,38 @@ describe('Transaction', () => {
     // expect.extend({ toBePoint: Secp256k1.toBePoint })
   })
 
-  test.only('Exercise 1', () => {
+  test('Exercise 1', () => {
+    // hexTrxs[0]: https://chain.so/tx/BTC/452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03
     const hexTrxs = require('./trxs')
     const stream = bToStream(Buffer.from(hexTrxs[0], 'hex'))
     const trx = Transaction.parse(stream)
     console.log(`${trx}`)
 
-    const varInt1 = bToStream(Buffer.from('6a', 'hex'))
-    const varInt2 = bToStream(Buffer.from('fd2602', 'hex'))
-    const varInt3 = bToStream(Buffer.from('fe703a0f00', 'hex'))
-    expect(Transaction.varintToN(varInt1)).toBe(106)
-    expect(Transaction.varintToN(varInt2)).toBe(550)
-    expect(Transaction.varintToN(varInt3)).toBe(998000)
+    // const { parseVarintToBN, nToVarint } = Transaction
+
+    // const varInt1 = Buffer.from('6a', 'hex')
+    // const varInt2 = Buffer.from('fd2602', 'hex')
+    // const varInt3 = Buffer.from('fe703a0f00', 'hex')
+
+    // const varIntToN = b => parseVarintToBN(bToStream(b)).toNumber()
+
+    // expect(varIntToN(varInt1)).toBe(106)
+    // expect(varIntToN(varInt2)).toBe(550)
+    // expect(varIntToN(varInt3)).toBe(998000)
+
+    // expect(nToVarint(106)).toEqual(varInt1)
+    // expect(nToVarint(550)).toEqual(varInt2)
+    // expect(nToVarint(998000)).toEqual(varInt3)
+  })
+
+  test('Exercise 5', () => {
+    const hexTrxs = require('./trxs')
+    const stream = bToStream(Buffer.from(hexTrxs[1], 'hex'))
+    const trx = Transaction.parse(stream)
+    expect(trx.txIns[1].scriptSig.toString('hex')).toEqual(
+      '304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937', 'hex' // XXX space
+    )
+    // expect(trx.txOuts[0].scriptPubkey).toBe('') // TODO
+    expect(trx.txOuts[1].amount).toBe(40000000)
   })
 })
