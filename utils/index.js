@@ -2,7 +2,7 @@ const { Readable } = require('stream')
 const R = require('ramda')
 const BN = require('bn.js')
 const crypto = require('crypto')
-const { o } = R
+const { o, __ } = R
 const { curryN } = R
 const { tryCatch, always } = R
 
@@ -20,6 +20,8 @@ module.exports = {
   hexToBE,
   concat,
   concatN,
+  prefix,
+  suffix,
 }
 
 /*
@@ -34,6 +36,9 @@ Buffer.prototype.reverse = function () {
 Buffer.prototype.toBN = function (endianness) {
   return bToBN(endianness)(this)
 }
+// Buffer.prototype.toNumber = function (endianness) {
+//   return bToBN(endianness)(this).toNumber()
+// }
 
 function safeEval (fn) {
   return tryCatch(fn, always(null))
@@ -48,12 +53,26 @@ function concatN (...args) {
   return args.reduce(concat, Buffer.from([]))
 }
 
-function nToBE (n, bits = 256) {
-  return new BN(n).toBuffer('be', bits / 8)
+function prefix (x) {
+  return concat(x)
 }
 
-function nToLE (n, bits = 256) {
-  return new BN(n).toBuffer('le', bits / 8)
+function suffix (x) {
+  return concat(__, x)
+}
+
+function nToBE (bits) {
+  return function (n) {
+    return new BN(n).toBuffer('be', bits ? bits / 8 : undefined)
+    // return new BN(n).toBuffer('be', bits / 8)
+  }
+}
+
+function nToLE (bits) {
+  return function (n) {
+    return new BN(n).toBuffer('le', bits ? bits / 8 : undefined)
+    // return new BN(n).toBuffer('le', bits / 8)
+  }
 }
 
 function bToBN (config) {

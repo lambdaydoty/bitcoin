@@ -100,9 +100,9 @@ describe('Bitcoin', () => {
   })
 
   test('Exercise 7: sign', () => {
-    const e = nToBE(12345)
+    const e = nToBE()(12345)
     const z = hash256(Buffer.from('Programming Bitcoin!'))
-    const k = nToBE(1234567890)
+    const k = nToBE()(1234567890)
     const { r, s, P } = sign(e, z, k)
     expect(r)
       .toEqual(hexToBE('2b698a0f0a4041b77e63488ad48c23e8e8838dd1fb7520408b121697b782ef22'))
@@ -241,7 +241,7 @@ describe('Serialization', () => {
 })
 
 describe('Transaction', () => {
-  const Transaction = require('./transaction')
+  const Transaction = require('./Transaction')
   const { bToStream } = require('../utils')
 
   beforeAll(() => {
@@ -276,9 +276,10 @@ describe('Transaction', () => {
     const hexTrxs = require('./trxs')
     const stream = bToStream(Buffer.from(hexTrxs[1], 'hex'))
     const trx = Transaction.parse(stream)
-    expect(trx.txIns[1].scriptSig.toString('hex')).toEqual(
-      '304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937', 'hex' // XXX space
-    )
+    expect(trx.txIns[1].scriptSig).toEqual([
+      Buffer.from('304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601', 'hex'),
+      Buffer.from('035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937', 'hex'),
+    ])
     // expect(trx.txOuts[0].scriptPubkey).toBe('') // TODO
     expect(trx.txOuts[1].amount).toBe(40000000)
   })

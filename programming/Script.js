@@ -1,0 +1,103 @@
+const interpreter = require('./interpreter')
+const { isNil, o, equals, type } = require('ramda')
+const { test, T, cond, lt, both, gte } = require('ramda')
+const { nToLE, safeEval, concat, concatN, prefix, hexToBE } = require('../utils')
+const inRange = (x, y) => n => both(gte(x), lt(y))
+const isNumber = o(equals('Number'), type)
+
+// const test1 = '10 2 3 0 OP_IF 6 OP_ADD OP_ELSE OP_IF OP_MUL OP_ELSE OP_SUB OP_ENDIF 11 22 OP_ENDIF'
+// const test2 = '1 2 3 OP_IF OP_IF OP_IF 50 OP_ELSE 60 OP_ENDIF 77 88 OP_ELSE 0 OP_ADD OP_ENDIF OP_ENDIF 1'
+// const test3 = '2 3 OP_ADD 5 OP_MUL'
+
+// Script.fromString('0x0001 OP_IF 0x11 OP_ELSE 0xff OP_ENDIF').run()
+// Script.fromString('1 1 OP_ADD').run()
+
+class Script {
+  constructor (_cmds = []) {
+    this.cmds = _cmds
+  }
+
+  static parse (stream) {
+    return [...bGenerator(stream)]
+
+    function * bGenerator (s) {
+      const readOp = _s => safeEval(() => _s.read(1).readUInt8())()
+
+      for (let op = readOp(s); !isNil(op); op = readOp(s)) {
+        if (op >= 1 && op <= 0x4b) yield s.read(op)
+        if (op === 0x4c) yield s.read(s.read(1).readUInt8())
+        if (op === 0x4d) yield s.read(s.read(2).readUInt16LE())
+        if (op > 0x4d) yield op // type: number
+      }
+    }
+    // TODO: return new Self()
+  }
+
+  static fromString (_program) {
+    /*
+     * Inputs:
+     *  string form: '1 1 OP_ADD'
+     *  array form: ['1', '1', 'OP_ADD']
+     * Ouputs:
+     *  [ <B 01>, <B 01>, 0x93 ]
+     */
+    const opcodes = require('./opcodes')
+    const wordToCode = w => opcodes[w]
+    const program = typeof _program === 'string'
+      ? _program.split(' ')
+      : _program
+    const mapper = cond([
+      [wordToCode, wordToCode], // XXX: omit OP_0
+      [test(/^0x/), hexToBE],
+      [T, o(nToLE(), Number)], // XXX: note the endianness
+    ])
+    return new Script(program.map(mapper))
+  }
+
+  serialize () {
+    return recur(this.cmds)
+
+    function recur ([head, ...tail]) {
+      const bf = x => Buffer.from(x)
+
+      if (isNil(head)) return bf([])
+      if (isNumber(head)) return concat(bf([head]), recur(tail))
+      return concatN(encodeLen(head.length), head, recur(tail))
+
+      /*
+       * number -> Buffer
+       */
+      function encodeLen (n) {
+        const b76 = Buffer.from([76])
+        const b77 = Buffer.from([77])
+        return cond([
+          [lt(0x4c), nToLE(8)],
+          [inRange(0x4c, 0x100), o(prefix(b76), nToLE(8))],
+          [inRange(0x100, 520), o(prefix(b77), nToLE(16))],
+        ])(n)
+      }
+    }
+  }
+
+  add (that) {
+    return new Script(concat(this.cmds, that.cmds))
+  }
+
+  run (config) {
+    return interpreter(this.cmds, true)
+  }
+}
+
+module.exports = Script
+
+// function eval (cmds) {
+//   function evaluator ([head, ...tail]) {
+//     return cond([
+//       [isOperator, ],
+//       [isOperand, ],
+//     ])(head)
+
+//     function isOperator (x) { return typeof x === 'number' }
+//     function isOperator (x) { return Buffer.isBuffer(x) }
+//   }
+// }

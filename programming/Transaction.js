@@ -1,35 +1,7 @@
 const { hash256, bToBN } = require('../utils')
-
-class Input {
-  constructor (prevTrx, prevIndex, scriptSig, sequence = 0xffffffff) {
-    this.prevTrx = prevTrx
-    this.prevIndex = prevIndex
-    this.scriptSig = scriptSig || Script()
-    this.sequence = sequence
-  }
-
-  toString () {
-    return `
-      prevTrx: ${this.prevTrx.toString('hex')}
-      prevIndex: ${this.prevIndex}
-      scriptSig: ${this.scriptSig.toString('hex')}
-    `
-  }
-}
-
-class Output {
-  constructor (amount, scriptPubkey) {
-    this.amount = amount
-    this.scriptPubkey = scriptPubkey
-  }
-
-  toString () {
-    return `
-      amount: ${this.amount}
-      scriptPubkey: ${this.scriptPubkey.toString('hex')}
-    `
-  }
-}
+const Input = require('./Input')
+const Output = require('./Output')
+const Script = require('./Script')
 
 class Transaction {
   constructor (version, txIns, txOuts, locktime, testnet = false) {
@@ -81,28 +53,30 @@ class Transaction {
 
     function parseInputs (s) {
       const n = parseVarintToBN(s).toNumber()
+      return [...inputGenerator(s, n)]
+
       function * inputGenerator (s, n) {
         while (n--) yield parseAnInput(s) // FIXME: async?
       }
-      return [...inputGenerator(s, n)]
 
       function parseAnInput (s) {
-        const { bToStream, concat, safeEval } = require('../utils')
+        const { bToStream } = require('../utils')
         const prevTrx = s.read(32).reverse()
         const prevIndex = s.read(4).toBN('le').toNumber()
         const m = parseVarintToBN(s).toNumber()
-        const scriptSig = concat(...parseScript(bToStream(s.read(m))))
+        // const scriptSig = concat(...parseScript(bToStream(s.read(m))))
+        const scriptSig = Script.parse(bToStream(s.read(m)))
         const sequence = s.read(4).toBN('le')
         return new Input(prevTrx, prevIndex, scriptSig, sequence)
 
-        function * parseScript (s) {
-          /* will exhaust stream s */
-          const next = safeEval(() => parseVarintToBN(s).toNumber())
-          for (let n = next(); n; n = next()) {
-            const b = s.read(n)
-            yield b
-          }
-        }
+        // function * parseScript (s) {
+        //   /* will exhaust stream s */
+        //   const next = safeEval(() => parseVarintToBN(s).toNumber())
+        //   for (let n = next(); n; n = next()) {
+        //     const b = s.read(n)
+        //     yield b
+        //   }
+        // }
       }
     }
 
@@ -126,15 +100,13 @@ class Transaction {
   static nToVarint (n) { return nToVarint(n) }
 }
 
-function Script () {}
-
 module.exports = Transaction
 
 const nextTwoBytes = Buffer.from([0xfd])
 const nextFourBytes = Buffer.from([0xfe])
 const nextEightBytes = Buffer.from([0xff])
 
-function parseVarintToBN (/* stream */ stream) {
+function parseVarintToBN (/* Readable */ stream) {
   const { Readable } = require('stream')
   const assert = require('assert')
   const { always, equals, compose: o, invoker, cond, T, isNil } = require('ramda')
