@@ -5,6 +5,9 @@ const { nToLE, safeEval, concat, concatN, prefix, hexToBE } = require('../utils'
 const inRange = (x, y) => n => both(gte(x), lt(y))
 const isNumber = o(equals('Number'), type)
 
+// func(x) . x==42
+// const scriptSig0 = '0x2a 0x766b012a87'
+// const scriptPubKey0 = 'OP_HASH160 0x53c3f130b2e0f8d9a3a5b6aaf71804543076d456 OP_EQUAL'
 // const test1 = '10 2 3 0 OP_IF 6 OP_ADD OP_ELSE OP_IF OP_MUL OP_ELSE OP_SUB OP_ENDIF 11 22 OP_ENDIF'
 // const test2 = '1 2 3 OP_IF OP_IF OP_IF 50 OP_ELSE 60 OP_ENDIF 77 88 OP_ELSE 0 OP_ADD OP_ENDIF OP_ENDIF 1'
 // const test3 = '2 3 OP_ADD 5 OP_MUL'

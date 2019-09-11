@@ -100,9 +100,9 @@ describe('Bitcoin', () => {
   })
 
   test('Exercise 7: sign', () => {
-    const e = nToBE()(12345)
+    const e = nToBE(256)(12345)
     const z = hash256(Buffer.from('Programming Bitcoin!'))
-    const k = nToBE()(1234567890)
+    const k = nToBE(256)(1234567890)
     const { r, s, P } = sign(e, z, k)
     expect(r)
       .toEqual(hexToBE('2b698a0f0a4041b77e63488ad48c23e8e8838dd1fb7520408b121697b782ef22'))
