@@ -14,6 +14,7 @@ module.exports = {
   nToLE,
   hash256: o(sha256, sha256),
   hash160: o(ripemd160, sha256),
+  sha1,
   sha256,
   ripemd160,
   toHex,
@@ -88,6 +89,13 @@ function bToBN (config) {
       throw new Error(config)
     }
   }
+}
+
+function sha1 (b) {
+  return crypto
+    .createHash('sha1')
+    .update(b)
+    .digest()
 }
 
 function sha256 (b) {

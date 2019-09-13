@@ -15,11 +15,19 @@ const isNumber = o(equals('Number'), type)
 // Script.fromString('0x0001 OP_IF 0x11 OP_ELSE 0xff OP_ENDIF').run()
 // Script.fromString('1 1 OP_ADD').run()
 
+// p2pk : '<pubkey> OP_CHECKSIG' | '<signature>'
+//
+// p2pkh : 'OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG' | '<signature> <pubkey>'
+
 class Script {
   constructor (_cmds = []) {
     this.cmds = _cmds
   }
 
+  /*
+   * @param { Readable } : raw scriptPubKey or scriptSig byte stream
+   * @return { Script } : a script whose cmds contains an array of parsed commands
+   */
   static parse (stream) {
     return [...bGenerator(stream)]
 
@@ -36,14 +44,14 @@ class Script {
     // TODO: return new Self()
   }
 
+  /*
+   * @param
+   *    { String } : '1 1 OP_ADD'
+   *    { Array } : ['1', '1', 'OP_ADD']
+   * @return { Array } : [ <B 01>, <B 01>, 0x93 ]
+   *
+   */
   static fromString (_program) {
-    /*
-     * Inputs:
-     *  string form: '1 1 OP_ADD'
-     *  array form: ['1', '1', 'OP_ADD']
-     * Ouputs:
-     *  [ <B 01>, <B 01>, 0x93 ]
-     */
     const opcodes = require('./opcodes')
     const wordToCode = w => opcodes[w]
     const program = typeof _program === 'string'
@@ -82,8 +90,12 @@ class Script {
     }
   }
 
+  /*
+   * @param { Script }
+   * @return { Script }
+   */
   add (that) {
-    return new Script(concat(this.cmds, that.cmds))
+    return new Script(this.cmds.concat(that.cmds))
   }
 
   run (config) {
@@ -92,15 +104,3 @@ class Script {
 }
 
 module.exports = Script
-
-// function eval (cmds) {
-//   function evaluator ([head, ...tail]) {
-//     return cond([
-//       [isOperator, ],
-//       [isOperand, ],
-//     ])(head)
-
-//     function isOperator (x) { return typeof x === 'number' }
-//     function isOperator (x) { return Buffer.isBuffer(x) }
-//   }
-// }
