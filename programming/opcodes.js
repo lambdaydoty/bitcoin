@@ -14,6 +14,15 @@ module.exports = {
   OP_VERIFY: 0x69, // 105
   OP_RETURN: 0x6a, // 106
 
+  OP_CONTROL_FLOWS: [
+    0x63, // 99
+    0x64, // 100
+    0x67, // 103
+    0x68, // 104
+    0x69, // 105
+    0x6a, // 106
+  ],
+
   OP_TOALTSTACK: 0x6b, // 107
   OP_FROMALTSTACK: 0x6c, // 108
 

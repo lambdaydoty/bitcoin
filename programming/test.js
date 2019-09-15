@@ -287,26 +287,27 @@ describe('Transaction', () => {
 
 describe('Script', () => {
   const Script = require('./Script')
+  const _b0 = Buffer.from([0])
+  const _b1 = Buffer.from([1])
 
   beforeAll(() => {
   })
 
   test('Exercise 3', () => {
     // 76 76 95 93 56 87
+    console.log({ Script })
     const scriptPubkey = Script.fromString('OP_DUP OP_DUP OP_MUL OP_ADD 6 OP_EQUAL')
     const scriptSig = Script.fromString('2')
     const script = scriptSig.add(scriptPubkey)
-    const result = script.run()
-    expect(result.mainStack.pop()).toEqual(Buffer.from([1]))
+    const { stack: [top] } = script.run()
+    expect(top).toEqual(_b1)
   })
 
-  test.only('Exercise 4', () => {
+  test('Exercise 4', () => {
     /*
      * credit: Peter Todd
      * https://www.blockchain.com/btc/tx/8d31992805518fd62daa3bdd2a5c4fd2cd3054c9b3dca1d78055e9528cff6adc?show_adv=true
      */
-    const _b00 = Buffer.from([0])
-    const _b01 = Buffer.from([1])
     // 6e 87 91 69 a7 7c a7 87
     const scriptPubkey = Script.fromString('OP_2DUP OP_EQUAL OP_NOT OP_VERIFY OP_SHA1 OP_SWAP OP_SHA1 OP_EQUAL')
     const scriptSig = (() => {
@@ -315,14 +316,11 @@ describe('Script', () => {
       const collision2 = fs.readFileSync('./sha1_shattered/shattered-2.pdf')
       return new Script([collision1, collision2])
     })()
-    const script = scriptSig.add(scriptPubkey)
-    const result = script.run()
-    expect(result.mainStack.pop()).toEqual(_b01)
-
-    const scriptFailedA = Script.fromString('1 1').add(scriptPubkey)
-    expect(scriptFailedA.run().state).toBe('invalid')
-
-    const scriptFailedB = Script.fromString('1 2').add(scriptPubkey)
-    expect(scriptFailedB.run().mainStack.pop()).toEqual(_b00)
+    const success = scriptSig.add(scriptPubkey)
+    const failed2 = Script.fromString('1 2').add(scriptPubkey)
+    const failed1 = Script.fromString('1 1').add(scriptPubkey)
+    expect(success.run().stack[0]).toEqual(_b1)
+    expect(failed2.run().stack[0]).toEqual(_b0)
+    expect(failed1.run().state).toBe('invalid')
   })
 })
