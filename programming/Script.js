@@ -1,7 +1,7 @@
 const interpreter = require('./interpreter')
-const { isNil, o, equals, type } = require('ramda')
+const { isNil, o, equals, type, __ } = require('ramda')
 const { test, T, cond, lt, both, gte } = require('ramda')
-const { nToLE, safeEval, concat, concatN, prefix, hexToBE } = require('../utils')
+const { nToLE, safeEval, concat, concatN, prefix, hexToBE, nToVarint } = require('../utils')
 const inRange = (x, y) => n => both(gte(x), lt(y))
 const isNumber = o(equals('Number'), type)
 
@@ -29,7 +29,7 @@ class Script {
    * @return { Script } : a script whose cmds contains an array of parsed commands
    */
   static parse (stream) {
-    return [...bGenerator(stream)]
+    return new Script([...bGenerator(stream)])
 
     function * bGenerator (s) {
       const readOp = _s => safeEval(() => _s.read(1).readUInt8())()
@@ -41,7 +41,6 @@ class Script {
         if (op > 0x4d) yield op // type: number
       }
     }
-    // TODO: return new Self()
   }
 
   /*
@@ -66,7 +65,8 @@ class Script {
   }
 
   serialize () {
-    return recur(this.cmds)
+    const raw = recur(this.cmds)
+    return nToVarint(raw.length).concat(raw)
 
     function recur ([head, ...tail]) {
       const bf = x => Buffer.from(x)
@@ -82,7 +82,7 @@ class Script {
         const b76 = Buffer.from([76])
         const b77 = Buffer.from([77])
         return cond([
-          [lt(0x4c), nToLE(8)],
+          [lt(__, 0x4c), nToLE(8)],
           [inRange(0x4c, 0x100), o(prefix(b76), nToLE(8))],
           [inRange(0x100, 520), o(prefix(b77), nToLE(16))],
         ])(n)

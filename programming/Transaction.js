@@ -1,7 +1,9 @@
-const { hash256, bToBN } = require('../utils')
+const { hash256, parseVarintToBN, nToVarint } = require('../utils')
+const { bToStream } = require('../utils')
 const Input = require('./Input')
 const Output = require('./Output')
 const Script = require('./Script')
+const { concat, invoker } = require('ramda')
 
 class Transaction {
   constructor (version, txIns, txOuts, locktime, testnet = false) {
@@ -15,22 +17,33 @@ class Transaction {
   toString () {
     return `
       id: ${this.id()}
-      version: ${this.version}
+      version: ${this.version.toNumber()}
       txIns: ${this.txIns}
       txOuts: ${this.txOuts}
-      locktime: ${this.locktime}
+      locktime: ${this.locktime.toNumber()}
     `
   }
 
   id () {
-    return hash256(this.serialize()).toString('hex')
+    return hash256(this.serialize()).reverse().toString('hex')
   }
 
   serialize () {
-    return Buffer.from([])
+    const serialize = invoker(0, 'serialize')
+    return Buffer.concat([
+      this.version.toBuffer('le', 4),
+      nToVarint(this.txIns.length),
+      this.txIns.map(serialize).reduce(concat),
+      nToVarint(this.txOuts.length),
+      this.txOuts.map(serialize).reduce(concat),
+      this.locktime.toBuffer('le', 4),
+    ])
   }
 
-  static parse (stream) {
+  fee () {
+  }
+
+  static parse (stream, testnet) {
     /**
      * SIDE EFFECT
      * all functions prefixed with parse-
@@ -41,14 +54,14 @@ class Transaction {
     const inputs = parseInputs(stream)
     const outputs = parseOutputs(stream)
     const locktime = parseLocktime(stream)
-    return new Transaction(version, inputs, outputs, locktime)
+    return new Transaction(version, inputs, outputs, locktime, testnet)
 
     function parseVersion (s) {
-      return s.read(4).toBN('le').toNumber()
+      return s.read(4).toBN('le')
     }
 
     function parseLocktime (s) {
-      return s.read(4).toBN('le').toNumber()
+      return s.read(4).toBN('le')
     }
 
     function parseInputs (s) {
@@ -60,11 +73,9 @@ class Transaction {
       }
 
       function parseAnInput (s) {
-        const { bToStream } = require('../utils')
         const prevTrx = s.read(32).reverse()
-        const prevIndex = s.read(4).toBN('le').toNumber()
+        const prevIndex = s.read(4).toBN('le')
         const m = parseVarintToBN(s).toNumber()
-        // const scriptSig = concat(...parseScript(bToStream(s.read(m))))
         const scriptSig = Script.parse(bToStream(s.read(m)))
         const sequence = s.read(4).toBN('le')
         return new Input(prevTrx, prevIndex, scriptSig, sequence)
@@ -88,63 +99,13 @@ class Transaction {
       return [...outputGenerator(s, n)]
 
       function parseAnOutput (s) {
-        const amount = s.read(8).toBN('le').toNumber() // FIXME: integer width
+        const amount = s.read(8).toBN('le')
         const m = parseVarintToBN(s).toNumber()
-        const scriptPubkey = s.read(m)
+        const scriptPubkey = Script.parse(bToStream(s.read(m)))
         return new Output(amount, scriptPubkey)
       }
     }
   }
-
-  static parseVarintToBN (s) { return parseVarintToBN(s) }
-  static nToVarint (n) { return nToVarint(n) }
 }
 
 module.exports = Transaction
-
-const nextTwoBytes = Buffer.from([0xfd])
-const nextFourBytes = Buffer.from([0xfe])
-const nextEightBytes = Buffer.from([0xff])
-
-function parseVarintToBN (/* Readable */ stream) {
-  const { Readable } = require('stream')
-  const assert = require('assert')
-  const { always, equals, compose: o, invoker, cond, T, isNil } = require('ramda')
-
-  assert.ok(stream instanceof Readable)
-
-  const readS = invoker(1, 'read')
-
-  return cond([
-    [isNil, always(null)],
-    [equals(nextTwoBytes), o(bToBN('le'), readS(2), always(stream))],
-    [equals(nextFourBytes), o(bToBN('le'), readS(4), always(stream))],
-    [equals(nextEightBytes), o(bToBN('le'), readS(8), always(stream))],
-    [T, bToBN('le')],
-  ])(readS(1)(stream))
-}
-
-/**
- * @return {Buffer}
- */
-function nToVarint (_n) {
-  const BN = require('bn.js')
-  const { compose: o, invoker, cond, T } = require('ramda')
-  const { concat } = require('../utils')
-
-  const _0xfd = new BN('fd', 16)
-  const _0x10000 = new BN('10000', 16)
-  const _0x100000000 = new BN('100000000', 16)
-  const _0x10000000000000000 = new BN('10000000000000000', 16)
-
-  const lt = invoker(1, 'lt')
-  const toBuffer = invoker(2, 'toBuffer')
-
-  return cond([
-    [lt(_0xfd), toBuffer('le', 1)],
-    [lt(_0x10000), o(concat(nextTwoBytes), toBuffer('le', 2))],
-    [lt(_0x100000000), o(concat(nextFourBytes), toBuffer('le', 4))],
-    [lt(_0x10000000000000000), o(concat(nextEightBytes), toBuffer('le', 8))],
-    [T, () => { throw new Error(_n) }],
-  ])(new BN(_n))
-}

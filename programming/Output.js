@@ -6,9 +6,16 @@ class Output {
 
   toString () {
     return `
-      amount: ${this.amount}
+      amount: ${this.amount.toNumber()}
       scriptPubkey: ${this.scriptPubkey.toString('hex')}
     `
+  }
+
+  serialize () {
+    return Buffer.concat([
+      this.amount.toBuffer('le', 8),
+      this.scriptPubkey.serialize(),
+    ])
   }
 }
 

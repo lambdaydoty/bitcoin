@@ -6,8 +6,11 @@ const { hash256, sha1, hash160 } = require('../utils')
 // NOTE: all numbers are stored in little-endian
 
 /*
- * It is surprisingly easy and clear to use array destructions
+ * It is surprisingly easy and clear to use array destructions (a.k.a car/cdr)
  * instead of [].push(), [].pop()!
+ *
+ *  push x: s => [x, ...s]
+ *  pop s: ([x, ...r]) => r
  */
 
 module.exports = {
@@ -26,10 +29,10 @@ module.exports = {
   [o.OP_HASH160]: ([x, ...rest]) => [hash160(x), ...rest],
   [o.OP_SHA1]: ([x, ...rest]) => [sha1(x), ...rest],
 
-  // if (cmd === opcodes['OP_CHECKSIG']) {}
-  // if (cmd === opcodes['OP_CHECKSIGVERIFY']) {}
-  // if (cmd === opcodes['OP_CHECKMULTISIG']) {}
-  // if (cmd === opcodes['OP_CHECKMULTISIGVERIFY']) {}
+  [o.OP_CHECKSIG]: () => {},
+  [o.OP_CHECKSIGVERIFY]: () => {},
+  [o.OP_CHECKMULTISIG]: () => {},
+  [o.OP_CHECKMULTISIGVERIFY]: () => {},
 }
 
 function bufferArithmetic (op, _x, _y) {

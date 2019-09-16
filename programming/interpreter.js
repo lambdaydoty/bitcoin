@@ -2,6 +2,12 @@ const { includes, isEmpty, either, slice, findIndex, isNil, both, propEq } = req
 const opcodes = require('./opcodes')
 const operator = require('./operator')
 
+/*
+ * stack operations are simulated by:
+ *  push x: s => [x, ...s]
+ *  pop s: ([x, ...r]) => r
+ */
+
 module.exports = function (_program, config) {
   const program = level(_program)
 
