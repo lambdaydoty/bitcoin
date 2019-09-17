@@ -9,6 +9,7 @@ const { tryCatch, always } = R
 
 module.exports = {
   safeEval,
+  toBeBN,
   bToStream,
   bToBN,
   nToBE,
@@ -67,6 +68,17 @@ function prefix (x) {
 
 function suffix (x) {
   return concat(__, x)
+}
+
+function toBeBN (received, expected) {
+  const pass = BN.isBN(received) &&
+    received.eq(new BN(expected))
+  const passMessage = () => `expected ${received} not to be BN (${expected})`
+  const notPassMessage = () => `expected ${received} to be BN (${expected})`
+  return {
+    pass,
+    message: pass ? passMessage : notPassMessage,
+  }
 }
 
 function nToBE (bits) {

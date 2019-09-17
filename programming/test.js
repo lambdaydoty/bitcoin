@@ -1,8 +1,10 @@
 /* eslint-env jest */
 
 const point = require('./point')
-const { hexToBE, nToBE, hash256 } = require('../utils')
+const { toBeBN, bToStream, hexToBE, nToBE, hash256 } = require('../utils')
 const hexTo256BE = h => hexToBE(h, 256)
+
+expect.extend({ toBeBN })
 
 describe('Small curves', () => {
   // point(a, b, p): y^2 = x^3 + ax + b mod p
@@ -276,12 +278,12 @@ describe('Transaction', () => {
     const hexTrxs = require('./trxs')
     const stream = bToStream(Buffer.from(hexTrxs[1], 'hex'))
     const trx = Transaction.parse(stream)
-    expect(trx.txIns[1].scriptSig).toEqual([
+    expect(trx.txIns[1].scriptSig.cmds).toEqual([
       Buffer.from('304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601', 'hex'),
       Buffer.from('035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937', 'hex'),
     ])
     // expect(trx.txOuts[0].scriptPubkey).toBe('') // TODO
-    expect(trx.txOuts[1].amount).toBe(40000000)
+    expect(trx.txOuts[1].amount).toBeBN(40000000)
   })
 })
 
@@ -322,5 +324,22 @@ describe('Script', () => {
     expect(success.run().stack[0]).toEqual(_b1)
     expect(failed2.run().stack[0]).toEqual(_b0)
     expect(failed1.run().state).toBe('invalid')
+  })
+})
+
+describe('7. Transaction Creation and Validation', () => {
+  const Transaction = require('./Transaction')
+
+  beforeAll(() => {
+  })
+
+  test('Verify id', () => {
+    const sample = {
+      id: '59937f5d2723a6ec65b45f47a936b0dd87e8e7bcbb7c16f234adaf035d9e8adb',
+      tx_hex: '02000000036a734e2d4387b138158eeeefd6b119a8c69d5506e8dedb5957313cac82624d60000000008a47304402206ad981b70d86d6de6fb1e642c5fb7e75d7d89906c1050681fe3e554985f89a17022012d342904eba8b9cdfd4e5e7ce3b3a1e0340918ee4079b444e801ff4214957260141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffad8672b83ef18a80ecdffa90ba28d085d2d741bb95d5fa52db1963893a12fdbd010000008a473044022026f3d8423f3e2570b1907f69299612489f917c2109d142c08c42603dcf40a944022073c46b93ca1d920027af49a349b6bdfb36bace0f069d16b5bea44915d9125a5b0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffdb317e1026e793bad054dea8d2bfe5c452be16c08ea2e60b156b045edb157c8e000000008a47304402203142592a6281d81afc93286f305784c09ef1892cdcd0ac81cec3cf3d403088ab022014540215f9d7d458f89f522effb7a17c0f44771e0ee648ee9cb22d2b8e33c65f0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffff020b4c00000000000017a914a4edbb82d6a77c2660ea06eaa489609a27bd9688877a600200000000001976a9144433b446eca6ab54d8d9cb7acd6d94d20f37e50c88ac00000000',
+    }
+    const testnet = true
+    const trx = Transaction.parse(bToStream(Buffer.from(sample.tx_hex, 'hex')), testnet)
+    expect(trx.id()).toBe(sample.id)
   })
 })
