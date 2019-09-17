@@ -40,7 +40,14 @@ class Transaction {
     ])
   }
 
-  fee () {
+  async fee () {
+    const sum = invoker(1, 'add')
+    const { txIns, txOuts, testnet } = this
+    const totalIns = await Promise.all(txIns.map(x => x.value(testnet)))
+    const totalOuts = txOuts.map(x => x.amount)
+    return totalIns.reduce(sum).sub(
+      totalOuts.reduce(sum)
+    )
   }
 
   static parse (stream, testnet) {
