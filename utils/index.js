@@ -31,7 +31,7 @@ module.exports = {
 }
 
 /*
- * Prototyping Buffer
+ * Prototyping Buffer, Array
  */
 Buffer.prototype.reverse = function () {
   return Buffer.from(
@@ -45,9 +45,15 @@ Buffer.prototype.toBN = function (endianness) {
 Buffer.prototype.concat = function (that) {
   return Buffer.concat([this, that])
 }
-// Buffer.prototype.toNumber = function (endianness) {
-//   return bToBN(endianness)(this).toNumber()
-// }
+Buffer.prototype.clone = function () {
+  return Buffer.from(this)
+}
+
+/* eslint no-extend-native: ["error", { "exceptions": ["Array"] }] */
+// A workaround, otherwise we should extend Array
+Array.prototype.clone = function () {
+  return Array.from(this.map(R.clone))
+}
 
 function safeEval (fn) {
   return tryCatch(fn, always(null))

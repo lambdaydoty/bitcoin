@@ -1,9 +1,22 @@
-const { hash256, nToVarint } = require('../utils')
+const { hash256, nToVarint, suffix } = require('../utils')
+const Script = require('./Script')
 const Input = require('./Input')
 const Output = require('./Output')
 // const Script = require('./Script')
 const trxParser = require('./trxParser')
-const { concat, invoker } = require('ramda')
+const R = require('ramda')
+const { concat, invoker } = R
+
+/*
+ * Datatypes:
+ *  Transaction
+ *  Input
+ *  Output
+ *  Script
+ *  Array
+ *  Buffer
+ *  BN (bn.js)
+ */
 
 class Transaction {
   constructor (version, txIns, txOuts, locktime, testnet = false) {
@@ -40,6 +53,26 @@ class Transaction {
     ])
   }
 
+  /*
+   * NOTE:
+   *  We need to implement clone methods for:
+   *    1. Transaction
+   *    2. Array (through prototyping)
+   *    3. Input
+   *    4. Output
+   *    5. Script
+   *  (Optional 6. Buffer, also through prototyping)
+   */
+  clone () {
+    return new Transaction(
+      R.clone(this.version),
+      R.clone(this.txIns),
+      R.clone(this.txOuts),
+      R.clone(this.locktime),
+      R.clone(this.testnet),
+    )
+  }
+
   async fee () {
     const sum = invoker(1, 'add')
     const { txIns, txOuts, testnet } = this
@@ -48,6 +81,21 @@ class Transaction {
     return totalIns.reduce(sum).sub(
       totalOuts.reduce(sum)
     )
+  }
+
+  async sigHash (inputIndex) {
+    const SIGHASH_ALL = Buffer.from('01000000', 'hex')
+    const that = this
+    const cloned = that.clone()
+
+    /* !SIDE EFFECT! */
+    for (let i = 0; i < cloned.txIns.length; ++i) {
+      cloned.txIns[i].scriptSig = (i === inputIndex)
+        ? await cloned.txIns[i].scriptPubkey(that.testnet)
+        : new Script()
+    }
+    const raw = suffix(SIGHASH_ALL)(cloned.serialize())
+    return hash256(raw)
   }
 
   static parse (stream, testnet) {

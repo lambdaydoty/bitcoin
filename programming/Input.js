@@ -3,6 +3,7 @@ const BN = require('bn.js')
 const trxFetcher = require('./trxFetcher')
 const trxParser = require('./trxParser')
 const Output = require('./Output')
+const R = require('ramda')
 
 class Input {
   constructor (prevTrx, prevIndex, scriptSig, sequence) {
@@ -30,16 +31,29 @@ class Input {
     ])
   }
 
-  // fetch (testnet = false) {
-  //   return trxFetcher(this)
-  // }
+  clone () {
+    return new Input(
+      R.clone(this.prevTrx),
+      R.clone(this.prevIndex),
+      R.clone(this.scriptSig),
+      R.clone(this.sequence),
+    )
+  }
 
-  async value (testnet = false) {
+  async txOutFetcher (testnet) {
     const that = this
     const raw = await trxFetcher(that.prevTrx, testnet)
-    const { outputs: _txOuts } = trxParser(raw, testnet)
-    const txOuts = _txOuts.map(x => new Output(...x))
-    return txOuts[that.prevIndex].amount
+    const { outputs } = trxParser(raw, testnet)
+    const txOut = outputs.map(x => new Output(...x))[that.prevIndex]
+    return txOut
+  }
+
+  async value (testnet = false) {
+    return (await this.txOutFetcher(testnet)).amount
+  }
+
+  async scriptPubkey (testnet = false) {
+    return (await this.txOutFetcher(testnet)).scriptPubkey
   }
 }
 

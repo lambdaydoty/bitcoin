@@ -1,6 +1,7 @@
 const interpreter = require('./interpreter')
-const { isNil, o, equals, type, __ } = require('ramda')
-const { test, T, cond, lt, both, gte } = require('ramda')
+const R = require('ramda')
+const { isNil, o, equals, type, __ } = R
+const { test, T, cond, lt, both, gte } = R
 const { nToLE, safeEval, concat, concatN, prefix, hexToBE, nToVarint } = require('../utils')
 const inRange = (x, y) => n => both(gte(x), lt(y))
 const isNumber = o(equals('Number'), type)
@@ -22,46 +23,6 @@ const isNumber = o(equals('Number'), type)
 class Script {
   constructor (_cmds = []) {
     this.cmds = _cmds
-  }
-
-  /*
-   * @param { Readable } : raw scriptPubKey or scriptSig byte stream
-   * @return { Script } : a script whose cmds contains an array of parsed commands
-   */
-  static parse (stream) {
-    return new Script([...bGenerator(stream)])
-
-    function * bGenerator (s) {
-      const readOp = _s => safeEval(() => _s.read(1).readUInt8())()
-
-      for (let op = readOp(s); !isNil(op); op = readOp(s)) {
-        if (op >= 1 && op <= 0x4b) yield s.read(op)
-        if (op === 0x4c) yield s.read(s.read(1).readUInt8())
-        if (op === 0x4d) yield s.read(s.read(2).readUInt16LE())
-        if (op > 0x4d) yield op // type: number
-      }
-    }
-  }
-
-  /*
-   * @param
-   *    { String } : '1 1 OP_ADD'
-   *    { Array } : ['1', '1', 'OP_ADD']
-   * @return { Array } : [ <B 01>, <B 01>, 0x93 ]
-   *
-   */
-  static fromString (_program) {
-    const opcodes = require('./opcodes')
-    const wordToCode = w => opcodes[w]
-    const program = typeof _program === 'string'
-      ? _program.split(' ')
-      : _program
-    const mapper = cond([
-      [wordToCode, wordToCode], // XXX: omit OP_0
-      [test(/^0x/), hexToBE],
-      [T, o(nToLE(), Number)], // XXX: note the endianness
-    ])
-    return new Script(program.map(mapper))
   }
 
   serialize () {
@@ -100,6 +61,50 @@ class Script {
 
   run (config) {
     return interpreter(this.cmds, true)
+  }
+
+  clone () {
+    return new Script(R.clone(this.cmds))
+  }
+
+  /*
+   * @param { Readable } : raw scriptPubkey or scriptSig byte stream
+   * @return { Script } : a script whose cmds contains an array of parsed commands
+   */
+  static parse (stream) {
+    return new Script([...bGenerator(stream)])
+
+    function * bGenerator (s) {
+      const readOp = _s => safeEval(() => _s.read(1).readUInt8())()
+
+      for (let op = readOp(s); !isNil(op); op = readOp(s)) {
+        if (op >= 1 && op <= 0x4b) yield s.read(op)
+        if (op === 0x4c) yield s.read(s.read(1).readUInt8())
+        if (op === 0x4d) yield s.read(s.read(2).readUInt16LE())
+        if (op > 0x4d) yield op // type: number
+      }
+    }
+  }
+
+  /*
+   * @param
+   *    { String } : '1 1 OP_ADD'
+   *    { Array } : ['1', '1', 'OP_ADD']
+   * @return { Array } : [ <B 01>, <B 01>, 0x93 ]
+   *
+   */
+  static fromString (_program) {
+    const opcodes = require('./opcodes')
+    const wordToCode = w => opcodes[w]
+    const program = typeof _program === 'string'
+      ? _program.split(' ')
+      : _program
+    const mapper = cond([
+      [wordToCode, wordToCode], // XXX: omit OP_0
+      [test(/^0x/), hexToBE],
+      [T, o(nToLE(), Number)], // XXX: note the endianness
+    ])
+    return new Script(program.map(mapper))
   }
 }
 
