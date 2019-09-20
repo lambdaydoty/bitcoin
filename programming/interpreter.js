@@ -10,64 +10,73 @@ const operator = require('./operator')
 
 module.exports = function (_program, config) {
   const program = level(_program)
-
-  if (config) pretty(program)
-
+  const log = config.log ? console.log : () => {}
+  const print = config.debug ? pretty : () => {}
+  const z = config.z
   const init = {
     stack: [],
     state: undefined,
     level: 0,
   }
 
+  print(program)
+
   return run(init, program)
-}
 
-function run (machine, program) {
-  console.log({ machine, program })
+  function run (machine, program) {
+    log({ machine, program })
 
-  if (isEmpty(program)) return machine
+    if (isEmpty(program)) return machine
 
-  const { stack, state, z } = machine
-  const [ [level, cmd], ...conti ] = program
+    const { stack, state } = machine
+    const [ [level, cmd], ...conti ] = program
 
-  if (includes(cmd, opcodes.OP_CONTROL_FLOWS)) {
-    const matchElse = both(propEq(0, level), propEq(1, opcodes.OP_ELSE))
-    const matchEndIf = both(propEq(0, level), propEq(1, opcodes.OP_ENDIF))
-    const ind = findIndex(either(matchElse, matchEndIf), conti)
-    const alter = slice(ind + 1, Infinity, conti)
+    if (includes(cmd, opcodes.OP_CONTROL_FLOWS)) {
+      const matchElse = both(propEq(0, level), propEq(1, opcodes.OP_ELSE))
+      const matchEndIf = both(propEq(0, level), propEq(1, opcodes.OP_ENDIF))
+      const ind = findIndex(either(matchElse, matchEndIf), conti)
+      const alter = slice(ind + 1, Infinity, conti)
 
-    if (cmd === opcodes.OP_VERIFY) {
-      const [x, ...s] = stack
-      const st = x.toBN('le').isZero() ? 'invalid' : state
-      return run({ stack: s, state: st, z }, conti)
+      if (cmd === opcodes.OP_VERIFY) {
+        const [x, ...s] = stack
+        const st = x.toBN('le').isZero() ? 'invalid' : state
+        return run({ stack: s, state: st }, conti)
+      }
+
+      if (cmd === opcodes.OP_EQUALVERIFY) {
+        const fn = operator[opcodes.OP_EQUAL]
+        const [x, ...s] = fn(stack)
+        const st = x.toBN('le').isZero() ? 'invalid' : state
+        return run({ stack: s, state: st }, conti)
+      }
+
+      if (cmd === opcodes.OP_IF) {
+        const [x, ...s] = stack
+        const p = !x.toBN('le').isZero() ? conti : alter
+        return run({ stack: s, state }, p)
+      }
+
+      if (cmd === opcodes.OP_ELSE) {
+        return run({ stack, state }, alter)
+      }
+
+      if (cmd === opcodes.OP_ENDIF) {
+        return run({ stack, state }, conti)
+      }
     }
 
-    if (cmd === opcodes.OP_IF) {
-      const [x, ...s] = stack
-      const p = !x.toBN('le').isZero() ? conti : alter
-      return run({ stack: s, state, z }, p)
+    if (typeof cmd === 'number') {
+      const fn = operator[cmd].bind({ z }) // NOTE: use dynamic binding for OP_CHECKSIG
+      return run({ stack: fn(stack), state }, conti)
     }
 
-    if (cmd === opcodes.OP_ELSE) {
-      return run({ stack, state, z }, alter)
+    if (Buffer.isBuffer(cmd)) {
+      const data = cmd
+      return run({ stack: [data, ...stack], state }, conti)
     }
 
-    if (cmd === opcodes.OP_ENDIF) {
-      return run({ stack, state, z }, conti)
-    }
+    throw new Error(cmd)
   }
-
-  if (typeof cmd === 'number') {
-    const fn = operator[cmd]
-    return run({ stack: fn(stack), state, z }, conti)
-  }
-
-  if (Buffer.isBuffer(cmd)) {
-    const data = cmd
-    return run({ stack: [data, ...stack], state, z }, conti)
-  }
-
-  throw new Error(cmd)
 }
 
 function level (program) {

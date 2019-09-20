@@ -5,7 +5,7 @@ const Output = require('./Output')
 // const Script = require('./Script')
 const trxParser = require('./trxParser')
 const R = require('ramda')
-const { concat, invoker } = R
+const { and, range, concat, invoker } = R
 
 /*
  * Datatypes:
@@ -96,6 +96,31 @@ class Transaction {
     }
     const raw = suffix(SIGHASH_ALL)(cloned.serialize())
     return hash256(raw)
+  }
+
+  async verifyInput (inputIndex, config) {
+    const that = this
+    const i = inputIndex
+    const z = await that.sigHash(i)
+    const locking = await that.txIns[i].scriptPubkey()
+    const unlocking = that.txIns[i].scriptSig
+    const result = unlocking.add(locking).run({ z, ...config })
+    console.log({ result })
+    return !result.stack.pop().toBN('le').isZero()
+  }
+
+  async verify () {
+    /*
+     * Omit:
+     *  Double-spend
+     *  ...
+     */
+    const that = this
+    const verifyInput = this.verifyInput.bind(this)
+    const n = that.txIns.length
+    const fee = await that.fee()
+    const isPassedInputs = await Promise.all(range(0, n).map(verifyInput))
+    return !fee.isNeg() && isPassedInputs.reduce(and)
   }
 
   static parse (stream, testnet) {

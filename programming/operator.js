@@ -29,10 +29,20 @@ module.exports = {
   [o.OP_HASH160]: ([x, ...rest]) => [hash160(x), ...rest],
   [o.OP_SHA1]: ([x, ...rest]) => [sha1(x), ...rest],
 
-  [o.OP_CHECKSIG]: () => {},
-  [o.OP_CHECKSIGVERIFY]: () => {},
-  [o.OP_CHECKMULTISIG]: () => {},
-  [o.OP_CHECKMULTISIGVERIFY]: () => {},
+  [o.OP_CHECKSIG] ([pub, sig, ...rest]) {
+    const { Secp256k1: { fromSEC } } = require('./secp256k1')
+    const { fromDER, verify } = require('./ecdsa')
+    const { z } = this
+    const data = [
+      fromSEC(pub), // P
+      z,
+      ...fromDER(sig), // _r, _s
+    ]
+    return [verify(...data) ? _b1 : _b0, ...rest]
+  },
+  // [o.OP_CHECKSIGVERIFY]: () => {},
+  // [o.OP_CHECKMULTISIG]: () => {},
+  // [o.OP_CHECKMULTISIGVERIFY]: () => {},
 }
 
 function bufferArithmetic (op, _x, _y) {

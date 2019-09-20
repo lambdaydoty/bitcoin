@@ -21,6 +21,7 @@ module.exports = {
     0x68, // 104
     0x69, // 105
     0x6a, // 106
+    0x88, // 136
   ],
 
   OP_TOALTSTACK: 0x6b, // 107

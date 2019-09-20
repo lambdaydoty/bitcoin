@@ -118,7 +118,7 @@ describe('Bitcoin', () => {
 })
 
 describe('Serialization', () => {
-  const { toDER } = require('./ecdsa')
+  const { fromDER, toDER } = require('./ecdsa')
   const { Secp256k1, G, gn } = require('./secp256k1')
   const BN = require('bn.js')
   const _5 = new BN(5)
@@ -161,12 +161,14 @@ describe('Serialization', () => {
   })
 
   test('Exercise 3', () => {
-    expect(toDER(
+    const [R, S] = [
       hexTo256BE('37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6'),
       hexTo256BE('8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec'),
-    )).toEqual(Buffer.from('3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec',
-      'hex',
-    ))
+    ]
+    const der = Buffer.from('3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec', 'hex')
+
+    expect(toDER(R, S)).toEqual(der)
+    expect(fromDER(der)).toEqual([R, S])
   })
 
   test('Exercise 4', () => {
@@ -178,13 +180,12 @@ describe('Serialization', () => {
   })
 
   test('Exercise 5', () => {
-    const base58check = require('./base58check')
-    const { hash160 } = require('../utils')
+    const { hash160, toBs58ck } = require('../utils')
 
     const MAINNET = Buffer.from([0x00])
     const TESTNET = Buffer.from([0x6f])
 
-    Buffer.prototype.toBs58ck = function (prefix) { return base58check(prefix)(this) }
+    Buffer.prototype.toBs58ck = function (prefix) { return toBs58ck(prefix)(this) }
     Buffer.prototype.toHash160 = function () { return hash160(this) }
 
     const priv1 = 5002
@@ -330,33 +331,45 @@ describe('Script', () => {
 describe.only('7. Transaction Creation and Validation', () => {
   // TODO: mock node-fetch!
   const Transaction = require('./Transaction')
-  const sample = {
-    id: '59937f5d2723a6ec65b45f47a936b0dd87e8e7bcbb7c16f234adaf035d9e8adb',
-    tx_hex: '02000000036a734e2d4387b138158eeeefd6b119a8c69d5506e8dedb5957313cac82624d60000000008a47304402206ad981b70d86d6de6fb1e642c5fb7e75d7d89906c1050681fe3e554985f89a17022012d342904eba8b9cdfd4e5e7ce3b3a1e0340918ee4079b444e801ff4214957260141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffad8672b83ef18a80ecdffa90ba28d085d2d741bb95d5fa52db1963893a12fdbd010000008a473044022026f3d8423f3e2570b1907f69299612489f917c2109d142c08c42603dcf40a944022073c46b93ca1d920027af49a349b6bdfb36bace0f069d16b5bea44915d9125a5b0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffdb317e1026e793bad054dea8d2bfe5c452be16c08ea2e60b156b045edb157c8e000000008a47304402203142592a6281d81afc93286f305784c09ef1892cdcd0ac81cec3cf3d403088ab022014540215f9d7d458f89f522effb7a17c0f44771e0ee648ee9cb22d2b8e33c65f0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffff020b4c00000000000017a914a4edbb82d6a77c2660ea06eaa489609a27bd9688877a600200000000001976a9144433b446eca6ab54d8d9cb7acd6d94d20f37e50c88ac00000000',
-  }
+  const sample = [
+    {
+      id: '59937f5d2723a6ec65b45f47a936b0dd87e8e7bcbb7c16f234adaf035d9e8adb',
+      tx_hex: '02000000036a734e2d4387b138158eeeefd6b119a8c69d5506e8dedb5957313cac82624d60000000008a47304402206ad981b70d86d6de6fb1e642c5fb7e75d7d89906c1050681fe3e554985f89a17022012d342904eba8b9cdfd4e5e7ce3b3a1e0340918ee4079b444e801ff4214957260141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffad8672b83ef18a80ecdffa90ba28d085d2d741bb95d5fa52db1963893a12fdbd010000008a473044022026f3d8423f3e2570b1907f69299612489f917c2109d142c08c42603dcf40a944022073c46b93ca1d920027af49a349b6bdfb36bace0f069d16b5bea44915d9125a5b0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffffdb317e1026e793bad054dea8d2bfe5c452be16c08ea2e60b156b045edb157c8e000000008a47304402203142592a6281d81afc93286f305784c09ef1892cdcd0ac81cec3cf3d403088ab022014540215f9d7d458f89f522effb7a17c0f44771e0ee648ee9cb22d2b8e33c65f0141047a668e0ee73a973d728308fa256aaefc975ae11556409289d5fcb2d66a8f15d34585c122b8702443fe2655a5184f8b91fcc62aeb4a03bd346028fa83dff969a3ffffffff020b4c00000000000017a914a4edbb82d6a77c2660ea06eaa489609a27bd9688877a600200000000001976a9144433b446eca6ab54d8d9cb7acd6d94d20f37e50c88ac00000000',
+    },
+    {
+      tx_hex: '0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600',
+      sigHash0: '27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6',
+    },
+  ]
 
   beforeAll(() => {})
 
   test('Verify id', () => {
     const testnet = true
-    const trx = Transaction.parse(bToStream(Buffer.from(sample.tx_hex, 'hex')), testnet)
-    expect(trx.id()).toBe(sample.id)
+    const trx = Transaction.parse(bToStream(Buffer.from(sample[0].tx_hex, 'hex')), testnet)
+    expect(trx.id()).toBe(sample[0].id)
   })
 
   test('Verify fee', async () => {
     const testnet = true
-    const trx = Transaction.parse(bToStream(Buffer.from(sample.tx_hex, 'hex')), testnet)
+    const trx = Transaction.parse(bToStream(Buffer.from(sample[0].tx_hex, 'hex')), testnet)
     const result = await trx.fee()
     expect(result).toBeBN(10000)
   })
 
   test('Exercise 1', async () => {
     const testnet = false
-    const hex = '0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600'
-    const sigHash0 = '27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6'
-    const raw = Buffer.from(hex, 'hex')
+    const raw = Buffer.from(sample[1].tx_hex, 'hex')
     const trx = Transaction.parse(raw, testnet)
     const result = await trx.sigHash(0)
-    expect(result).toEqual(Buffer.from(sigHash0, 'hex'))
+    expect(result).toEqual(Buffer.from(sample[1].sigHash0, 'hex'))
+  })
+
+  test('Exercise 2', async () => {
+    const testnet = false
+    const raw = Buffer.from(sample[1].tx_hex, 'hex')
+    const trx = Transaction.parse(raw, testnet)
+    const result = await trx.verifyInput(0)
+    expect(result).toBe(true)
   })
 })

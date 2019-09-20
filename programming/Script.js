@@ -60,7 +60,7 @@ class Script {
   }
 
   run (config) {
-    return interpreter(this.cmds, true)
+    return interpreter(this.cmds, { verbose: true, ...config })
   }
 
   clone () {

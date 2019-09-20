@@ -1,16 +1,16 @@
 const assert = require('assert')
 const crypto = require('crypto')
 const { G, Secp256k1, gn } = require('./secp256k1')
-const { toHex } = require('../utils')
+const { toHex, bToStream } = require('../utils')
 
-module.exports = { verify, sign, toDER }
+module.exports = { verify, sign, toDER, fromDER }
 
 function verify (
   P, /* Point: public key */
   _z, /* Buffer: message */
   _r, /* Buffer */
   _s, /* Buffer */
-  _der, /* Buffer */
+  // _der, /* Buffer */
 ) {
   assert.strictEqual(P instanceof Secp256k1, true)
   assert.strictEqual(Buffer.isBuffer(_z), true)
@@ -64,6 +64,9 @@ function sign (
   })
 }
 
+const START = Buffer.from([0x30])
+const INTEGER = Buffer.from([0x02])
+
 function toDER (_r, _s) {
   const r = this.r || _r
   const s = this.s || _s
@@ -72,16 +75,38 @@ function toDER (_r, _s) {
   assert.strictEqual(Buffer.isBuffer(s) && s.length === 32, true)
 
   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
-  const length = x => Buffer.from([x.length])
-  const START = Buffer.from([0x30])
-  const MARKER = Buffer.from([0x02])
+  const length = x => Buffer.from([x.length]) // NOTE: up to 73/74 bytes
   const signedR = Buffer.concat([sign(r), r])
   const signedS = Buffer.concat([sign(s), s])
   const rs = Buffer.concat([
-    MARKER, length(signedR), signedR,
-    MARKER, length(signedS), signedS,
+    INTEGER, length(signedR), signedR,
+    INTEGER, length(signedS), signedS,
   ])
   return Buffer.concat([
     START, length(rs), rs,
   ])
+}
+
+function fromDER (b) {
+  return [...bGenerator(bToStream(b))]
+  function * bGenerator (stream) {
+    const readChunk = marker => (s) => {
+      const m = s.read(1)
+      if (!m.equals(marker)) throw new Error(m, marker)
+      const length = s.read(1).readUInt8()
+      const chunk = s.read(length)
+      return chunk
+    }
+
+    const rs = readChunk(START)(stream)
+    const subStream = bToStream(rs)
+
+    const R = readChunk(INTEGER)(subStream)
+    const S = readChunk(INTEGER)(subStream)
+
+    const removeSign = b => b[0] ? b : b.slice(1)
+
+    yield removeSign(R)
+    yield removeSign(S)
+  }
 }
