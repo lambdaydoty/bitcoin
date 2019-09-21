@@ -4,10 +4,9 @@ const fetch = require('node-fetch')
 const R = require('ramda')
 const BN = require('bn.js')
 const crypto = require('crypto')
-const bs58 = require('bs58')
 const { o, __ } = R
 const { curryN } = R
-const { tryCatch, always, pipe } = R
+const { tryCatch, always } = R
 
 const hash256 = o(sha256, sha256)
 const hash160 = o(ripemd160, sha256)
@@ -32,8 +31,6 @@ module.exports = {
   get,
   parseVarintToBN,
   nToVarint,
-  toBs58ck,
-  fromBs58ck,
 }
 
 /*
@@ -215,29 +212,4 @@ function nToVarint (_n) {
     [lt(_0x10000000000000000), o(concat(nextEightBytes), toBuffer('le', 8))],
     [T, () => { throw new Error(_n) }],
   ])(new BN(_n))
-}
-
-/* Buffer -> String */
-function toBs58ck (prefix, suffix = Buffer.from([])) {
-  // TODO: refactor prefix, suffix to 'p2pkh'
-  const first4 = b => b.slice(0, 4)
-  return function (payload) {
-    const fn = pipe(
-      x => [x, o(first4, hash256)(x)],
-      list => concat(...list),
-      bs58.encode,
-    )
-    return fn(concatN(prefix, payload, suffix))
-  }
-}
-
-/* String -> Buffer */
-function fromBs58ck (type /* 'p2pkh' */, str) {
-  const decodeAddressPrefix = require('./decodeAddressPrefix')
-  const b = bs58.decode(str)
-  const n = b.length
-  const payload = b.slice(0, n - 4)
-  const checksum = b.slice(n - 4, n)
-  assert.deepStrictEqual(hash256(payload).slice(0, 4), checksum)
-  return decodeAddressPrefix(type, payload)
 }

@@ -179,13 +179,11 @@ describe('Serialization', () => {
     expect(bs58.encode(hexToBE('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6'))).toBe('EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7')
   })
 
-  test('Exercise 5', () => {
-    const { hash160, toBs58ck } = require('../utils')
+  test.only('Exercise 5', () => {
+    const { hash160 } = require('../utils')
+    const { toBs58Check } = require('./addressCodec')
 
-    const MAINNET = Buffer.from([0x00])
-    const TESTNET = Buffer.from([0x6f])
-
-    Buffer.prototype.toBs58ck = function (prefix) { return toBs58ck(prefix)(this) }
+    Buffer.prototype.toBs58Check = function (type) { return toBs58Check(type, this) }
     Buffer.prototype.toHash160 = function () { return hash160(this) }
 
     const priv1 = 5002
@@ -196,19 +194,19 @@ describe('Serialization', () => {
       .rmul(priv1) // to public key
       .toSEC(false) // to uncompressed public key
       .toHash160() // to uncompressed public key hash
-      .toBs58ck(TESTNET) // to address
+      .toBs58Check('tp2pkh') // to address
     ).toBe('mmTPbXQFxboEtNRkwfh6K51jvdtHLxGeMA')
     expect(G
       .rmul(priv2)
       .toSEC()
       .toHash160()
-      .toBs58ck(TESTNET)
+      .toBs58Check('tp2pkh')
     ).toBe('mopVkxp8UhXqRYbCYJsbeE1h1fiF64jcoH')
     expect(G
       .rmul(priv3)
       .toSEC()
       .toHash160()
-      .toBs58ck(MAINNET)
+      .toBs58Check('p2pkh')
     ).toBe('1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1')
   })
 
@@ -328,7 +326,7 @@ describe('Script', () => {
   })
 })
 
-describe.only('7. Transaction Creation and Validation', () => {
+describe('7. Transaction Creation and Validation', () => {
   // TODO: mock node-fetch!
   const Transaction = require('./Transaction')
   const sample = [
