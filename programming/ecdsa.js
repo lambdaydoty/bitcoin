@@ -35,6 +35,18 @@ function verify (
   return _x.eq(r) // XXX: check _x vs r
 }
 
+/*
+ * @param {Buffer} : _e - the private key
+ * @param {Buffer} : _z - the message to be signed
+ * @return {Object} :
+ *   {Buffer} : r - the r value
+ *   {Buffer} : s - the LOWER s value
+ *   {Lambda} : toDER - convert (r, s) to DER format
+ *   {Point} : P - the public key correspondig to _e
+ *
+ * @!Note: sign() will produce different (r, s) at different calls!
+ *
+ */
 function sign (
   _e, /* Buffer: private key */
   _z, /* Buffer: message */
@@ -57,8 +69,6 @@ function sign (
   const ns = _s.redNeg()
   const s = _s.fromRed().gt(ns.fromRed()) ? ns : _s
 
-  console.log({ _s, ns, s })
-
   const P = G.rmul(e.fromRed())
 
   return ({
@@ -76,8 +86,8 @@ function toDER (_r, _s) {
   const r = this.r || _r
   const s = this.s || _s
 
-  assert.strictEqual(Buffer.isBuffer(r) && r.length === 32, true)
-  assert.strictEqual(Buffer.isBuffer(s) && s.length === 32, true)
+  assert.ok(Buffer.isBuffer(r) && r.length === 32)
+  assert.ok(Buffer.isBuffer(s) && s.length === 32)
 
   const sign = x => x[0] >= 0x80 ? Buffer.from([0x00]) : Buffer.from([])
   const length = x => Buffer.from([x.length]) // NOTE: up to 73/74 bytes
@@ -97,7 +107,8 @@ function fromDER (b) {
   function * bGenerator (stream) {
     const readChunk = marker => (s) => {
       const m = s.read(1)
-      if (!m.equals(marker)) throw new Error(m, marker)
+      assert.ok(m.equals(marker))
+
       const length = s.read(1).readUInt8()
       const chunk = s.read(length)
       return chunk

@@ -257,6 +257,6 @@ function nToVarint (_n) {
     [lt(_0x10000), o(concat(nextTwoBytes), toBuffer('le', 2))],
     [lt(_0x100000000), o(concat(nextFourBytes), toBuffer('le', 4))],
     [lt(_0x10000000000000000), o(concat(nextEightBytes), toBuffer('le', 8))],
-    [T, () => { throw new Error(_n) }],
+    [T, assert.fail],
   ])(bn(_n))
 }

@@ -1,4 +1,5 @@
 /* eslint-env jest */
+jest.setTimeout(300000)
 
 const point = require('./point')
 const { bn, toBeBN, bToStream, hexToBE, nToBE, hash256 } = require('../utils')
@@ -289,7 +290,6 @@ describe('Script', () => {
 
   test('Exercise 3', () => {
     // 76 76 95 93 56 87
-    console.log({ Script })
     const scriptPubkey = Script.fromString('OP_DUP OP_DUP OP_MUL OP_ADD 6 OP_EQUAL')
     const scriptSig = Script.fromString('2')
     const script = scriptSig.add(scriptPubkey)
@@ -374,35 +374,8 @@ describe('7. Transaction Creation and Validation', () => {
     ).toBe('1976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac')
   })
 
-  test.skip('Create Transaction', async () => {
+  test('Create Transaction', async () => {
     const { fromBs58Check } = require('./addressCodec')
-    // const trx = await Transaction.createSimpleP2pkh(
-    //   '0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299', 13,
-    //   'mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf', String(0.1 * 100000000),
-    //   'mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2', String(0.33 * 100000000),
-    //   8675309,
-    // )
-    // const trx = await Transaction.createSimpleP2pkh(
-    //   '75a1c4bc671f55f626dda1074c7725991e6f68b8fcefcfca7b64405ca3b45f1c', 1,
-    //   'miKegze5FQNCnGw6PKyqUbYUeBa4x2hFeM', '1000000',
-    //   'mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2', '899999',
-    //   8675309,
-    // )
-
-    // d98ec753d79e74542e91b36ab747942dc9b8b78f9d79320ba6e8bf23166e209c
-    // const trx = await Transaction.createSimpleP2pkh(
-    //   '5a98e2db0f5f15eef3482b43ad596f0c9562e1e0b0e792df6052e7794a1eb172', 1,
-    //   'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '100000',
-    //   'mr7cEkw3hKQce1rH38mZn6Zgx8Y569fqUf', '198983',
-    //   fromBs58Check('tcWIF', 'cTgdLEgnsaPAF5NoXbuZdwGbgRxPAFm34EPDUEGq8VQ3ubRmnxrx')
-    // )
-    // console.log(trx, trx.id(), trx.serialize().toString('hex'))
-    // console.log(
-    //   trx.txIns[0].scriptSig,
-    //   trx.txOuts[0].scriptPubkey,
-    //   trx.txOuts[1].scriptPubkey,
-    // )
-
     /*
      * Transaction.createSimpleP2pkh(
      *   ...[id, ix],
@@ -411,12 +384,14 @@ describe('7. Transaction Creation and Validation', () => {
      *   privateKey,
      * )
      */
+    // https://blockstream.info/testnet/tx/8cedce8334aca5b6537ef31f7efe1c5c4be17905297d71c76bdb22cb01f26197
     const trx = await Transaction.createSimpleP2pkh(
-      '4abfaab6a2825db49aec26c2d91d80411d5bc3881a169ad2c014ce78c5ef999e', 1,
-      'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '540',
-      'n13HKC5Qny4dzZcRzvKev65CbMCiLFQVxR', '4034191',
-      fromBs58Check('tcWIF', 'cPUHfGjC3AnRmTQgWtuhwfQ5uqo4SHXro7ERTxQkFDNHwb2tnTpj')
+      '6e099ad34d7748fc7491089f16dddf8262ce99880255b519989eea611f1e4547', 1,
+      'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '5434',
+      'n13HKC5Qny4dzZcRzvKev65CbMCiLFQVxR', '17680000',
+      fromBs58Check('tcWIF', 'cRLyeY9cL7p4gNvWnArfQkZ8Q6Mjth62ybczg6NJx9xsJrYia2QS')
     )
-    console.log(trx, trx.id(), trx.serialize().toString('hex'))
+    const result = await trx.verify()
+    expect(result).toBe(true)
   })
 })

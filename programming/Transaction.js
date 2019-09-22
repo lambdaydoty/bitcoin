@@ -21,7 +21,13 @@ const SIGHASH_ALL = hexToBE('01000000')
  *  Script
  *  Array
  *  Buffer
- *  BN (bn.js)
+ *  BN (bn, gn, rn, ...)
+ *  Validation
+ *
+ * Human-readable
+ *  HexString
+ *  NumberString
+ *  Number
  */
 
 class Transaction {
@@ -89,7 +95,7 @@ class Transaction {
     )
   }
 
-  async sigHash (inputIndex) {
+  async sigHash (inputIndex, type = SIGHASH_ALL) {
     const that = this
     const cloned = that.clone()
 
@@ -99,30 +105,23 @@ class Transaction {
         ? await cloned.txIns[i].scriptPubkey(that.testnet)
         : new Script()
     }
-    console.log(`@cloned`)
-    console.log(cloned)
-    console.log(cloned.txIns[0])
-    const raw = suffix(SIGHASH_ALL)(cloned.serialize())
+
+    const raw = suffix(type)(cloned.serialize())
     return hash256(raw)
   }
 
   async verifyInput (inputIndex, config) {
     const that = this
     const i = inputIndex
-    const z = await that.sigHash(i)
-    const locking = await that.txIns[i].scriptPubkey()
+    const z = await that.sigHash(i, SIGHASH_ALL)
+    const locking = await that.txIns[i].scriptPubkey(that.testnet)
     const unlocking = that.txIns[i].scriptSig
     const result = unlocking.add(locking).run({ z, ...config })
-    // console.log({ result })
     return !result.stack.pop().toBN('le').isZero()
   }
 
   async verify () {
-    /*
-     * Omit:
-     *  Double-spend
-     *  ...
-     */
+    // Omit: Double-spend, ...
     const that = this
     const verifyInput = this.verifyInput.bind(this)
     const n = that.txIns.length
@@ -158,13 +157,11 @@ class Transaction {
     _targetAmount,
     _changeAddress,
     _changeAmount,
-    _priv,
+    _priv, // TODO: priv format: number, gn, buffer? -> privatekeyclass
   ) {
     // TODO: network
     const { sign } = require('./ecdsa')
-    const { G } = require('./secp256k1')
     const prevTrx = hexToBE(_prevTrx)
-    console.log({ _prevIndex, _targetAmount, _changeAmount })
     const prevIndex = bn(_prevIndex)
     const targetScript = Script.fromP2pkh(fromBs58Check('tp2pkh', _targetAddress)) // TODO: functional
     const targetAmount = bn(_targetAmount)
@@ -172,31 +169,35 @@ class Transaction {
     const changeAmount = bn(_changeAmount)
 
     const trx = new Transaction(
-      // bn(2), // version
-      bn(1), // version
-      // [new Input(prevTrx, prevIndex, null, bn('fffffffd', 16))],
-      [new Input(prevTrx, prevIndex, null, bn('ffffffff', 16))],
-      [new Output(targetAmount, targetScript), new Output(changeAmount, changeScript)],
-      bn(0), // locktime
-      // bn(1579220), // locktime
+      bn(1),
+      [
+        new Input(prevTrx, prevIndex, null, bn('ffffffff', 16)),
+      ],
+      [
+        new Output(targetAmount, targetScript),
+        new Output(changeAmount, changeScript),
+      ],
+      bn(0),
       true,
     )
 
-    // TODO: priv format: number, gn, buffer? -> privatekeyclass
-    const z = await trx.sigHash(0)
-    // const e = nToBE(256)(_priv)
+    const z = await trx.sigHash(0, SIGHASH_ALL)
     const e = _priv
-    const sigDER_ = sign(e, z).toDER().concat(hexToBE('01')) // TODO: SIGHASH_ALL
-    const pubSEC = G.rmul(_priv).toSEC()
-    const { toBs58Check } = require('./addressCodec')
-    const { hash160 } = require('../utils')
-    console.log(`privkey-p2pkh-address: ${toBs58Check('tp2pkh', hash160(pubSEC))}`)
-    const scriptSig = Script.fromSigPk(sigDER_, pubSEC)
+
+    const result = sign(e, z)
+
+    const sigDER_ = result.toDER().concat(trim(SIGHASH_ALL))
+    const pubSEC = result.P.toSEC()
 
     /* !SIDE EFFECT! */
-    trx.txIns[0].scriptSig = scriptSig
+    trx.txIns[0].scriptSig = Script.fromSigPk(sigDER_, pubSEC)
+
     return trx
   }
+}
+
+function trim (buf) {
+  return buf.toBN('le').toBuffer('le')
 }
 
 module.exports = Transaction
