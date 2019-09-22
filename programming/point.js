@@ -2,36 +2,31 @@ const R = require('ramda')
 const { T, cond, compose } = R
 const { pipe, always } = R
 const { unless } = R
-const BN = require('bn.js')
+const { BN, bn, red } = require('../utils')
+const { _1, _2, _3 } = bn.CONSTANT
 
-module.exports = (_a, _b, _p) => {
-  const _1 = new BN(1)
-  const _2 = new BN(2)
-  const _3 = new BN(3)
-  const PRIME = new BN(_p)
-  const red = BN.red(PRIME)
-  const bn = (...x) => new BN(...x).toRed(red)
-  const a = bn(_a)
-  const b = bn(_b)
-  const r0 = bn(0)
-  const r2 = bn(2)
-  const r3 = bn(3)
+module.exports = (_a, _b, prime) => {
+  const rn = red(prime)
+  const rnIfNeed = unless(BN.isBN, rn)
+  const a = rn(_a)
+  const b = rn(_b)
+  const r0 = rn(0)
+  const r2 = rn(2)
+  const r3 = rn(3)
   const sum = (...args) => args.reduce(
     (acc, curr) => acc.redAdd(curr),
     r0,
   )
 
-  // const ORDER = order ? new BN(order) : null
+  // const ORDER = order ? bn(order) : null
 
   class Self {
     constructor (_x, _y) {
-      if (!_x && !_y) {
-        // identity
+      if (!_x && !_y) { // identity
         this._x = this._y = null
       } else if (_x && _y) {
-        const bnIfNeed = unless(BN.isBN, bn)
-        const x = bnIfNeed(_x)
-        const y = bnIfNeed(_y)
+        const x = rnIfNeed(_x)
+        const y = rnIfNeed(_y)
         if (!compatible(x, y, a, b)) throw new Error({ x, y, a, b })
         this._x = x
         this._y = y
@@ -85,7 +80,7 @@ module.exports = (_a, _b, _p) => {
     }
 
     rmul (/* Zn of order order */ _n) {
-      const n = new BN(_n)
+      const n = bn(_n)
 
       const recur = m => pipe(
         always(m),
@@ -135,7 +130,7 @@ module.exports = (_a, _b, _p) => {
 
     static id () { return new Self() }
 
-    static bn (...x) { return bn(...x) }
+    static bn (...x) { return rn(...x) }
 
     static toBePoint (received, expected) {
       const pass = received instanceof Self &&

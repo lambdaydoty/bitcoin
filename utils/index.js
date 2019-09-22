@@ -1,5 +1,5 @@
-const { Readable } = require('stream')
 const assert = require('assert')
+const { Readable } = require('stream')
 const fetch = require('node-fetch')
 const R = require('ramda')
 const BN = require('bn.js')
@@ -10,7 +10,48 @@ const { tryCatch, always } = R
 
 const hash256 = o(sha256, sha256)
 const hash160 = o(ripemd160, sha256)
+
+// eg.
+//   bn('abcd', 16)
+//   bn('100001', 2)
+//   bn('65536')
+//   bn(65536)
+// A wrapper for `new BN(...)`
+const bn = Object.assign(
+  (...args) => new BN(...args),
+  {
+    CONSTANT: {
+      _0: new BN(0),
+      _1: new BN(1),
+      _2: new BN(2),
+      _3: new BN(3),
+      _4: new BN(4),
+      _5: new BN(5),
+      _6: new BN(6),
+      _7: new BN(7),
+      _8: new BN(8),
+      _9: new BN(9),
+      _32: new BN(32),
+      _256: new BN(256),
+      _977: new BN(977),
+    },
+  },
+)
+
+// A wrapper for `new BN(...).toRed()`
+// eg.
+//   rn = red(bn(7))
+//   rn(3).redAdd( rn(4) ) => 0
+const red = (num) => {
+  assert.ok(BN.isBN(num))
+  const redContext = BN.red(num)
+  return (...args) => new BN(...args).toRed(redContext)
+}
+
 module.exports = {
+  red,
+  bn,
+  BN,
   safeEval,
   toBeBN,
   bToStream,
@@ -81,7 +122,7 @@ function suffix (x) {
 
 function toBeBN (received, expected) {
   const pass = BN.isBN(received) &&
-    received.eq(new BN(expected))
+    received.eq(bn(expected))
   const passMessage = () => `expected ${received} not to be BN (${expected})`
   const notPassMessage = () => `expected ${received} to be BN (${expected})`
   return {
@@ -92,24 +133,24 @@ function toBeBN (received, expected) {
 
 function nToBE (bits) {
   return function (n) {
-    return new BN(n).toBuffer('be', bits ? bits / 8 : undefined)
-    // return new BN(n).toBuffer('be', bits / 8)
+    return bn(n).toBuffer('be', bits ? bits / 8 : undefined)
+    // return bn(n).toBuffer('be', bits / 8)
   }
 }
 
 function nToLE (bits) {
   return function (n) {
-    return new BN(n).toBuffer('le', bits ? bits / 8 : undefined)
-    // return new BN(n).toBuffer('le', bits / 8)
+    return bn(n).toBuffer('le', bits ? bits / 8 : undefined)
+    // return bn(n).toBuffer('le', bits / 8)
   }
 }
 
 function bToBN (config) {
   return function (buffer) {
     if (config === 'be') {
-      return new BN(buffer.toString('hex'), 16)
+      return bn(buffer.toString('hex'), 16)
     } else if (config === 'le') {
-      return new BN(
+      return bn(
         buffer.toString('hex').match(/.{1,2}/g).reverse().join(''),
         16,
       )
@@ -144,6 +185,13 @@ function toHex (b) {
   return b.toString('hex')
 }
 
+/*
+ * Eg.
+ *  hexToBE('001122')
+ *  hexToBE('001122', 32)
+ *  hexToBE('0x00')
+ *  hexToBE(`ff \n ff`)
+ */
 function hexToBE (hex, bits = 0) {
   const max = (a, b) => a > b ? a : b
   const norm = hex.replace(/^0x/g, '').replace(/(\n|\s)/mg, '')
@@ -193,14 +241,13 @@ function parseVarintToBN (/* Readable */ stream) {
  * @return {Buffer}
  */
 function nToVarint (_n) {
-  const BN = require('bn.js')
   const { compose: o, invoker, cond, T } = require('ramda')
   const { concat } = require('../utils')
 
-  const _0xfd = new BN('fd', 16)
-  const _0x10000 = new BN('10000', 16)
-  const _0x100000000 = new BN('100000000', 16)
-  const _0x10000000000000000 = new BN('10000000000000000', 16)
+  const _0xfd = bn('fd', 16)
+  const _0x10000 = bn('10000', 16)
+  const _0x100000000 = bn('100000000', 16)
+  const _0x10000000000000000 = bn('10000000000000000', 16)
 
   const lt = invoker(1, 'lt')
   const toBuffer = invoker(2, 'toBuffer')
@@ -211,5 +258,5 @@ function nToVarint (_n) {
     [lt(_0x100000000), o(concat(nextFourBytes), toBuffer('le', 4))],
     [lt(_0x10000000000000000), o(concat(nextEightBytes), toBuffer('le', 8))],
     [T, () => { throw new Error(_n) }],
-  ])(new BN(_n))
+  ])(bn(_n))
 }

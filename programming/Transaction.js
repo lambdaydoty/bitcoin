@@ -1,4 +1,4 @@
-const { hash256, nToVarint, suffix } = require('../utils')
+const { hexToBE, hash256, nToVarint, suffix } = require('../utils')
 const Script = require('./Script')
 const Input = require('./Input')
 const Output = require('./Output')
@@ -6,6 +6,12 @@ const Output = require('./Output')
 const trxParser = require('./trxParser')
 const R = require('ramda')
 const { and, range, concat, invoker } = R
+const { fromBs58Check } = require('./addressCodec')
+const BN = require('bn.js')
+const bn = (...x) => new BN(...x)
+
+const SIGHASH_ALL = hexToBE('01000000')
+// const SIGHASH_ALL = hexToBE('01')
 
 /*
  * Datatypes:
@@ -84,7 +90,6 @@ class Transaction {
   }
 
   async sigHash (inputIndex) {
-    const SIGHASH_ALL = Buffer.from('01000000', 'hex')
     const that = this
     const cloned = that.clone()
 
@@ -94,6 +99,9 @@ class Transaction {
         ? await cloned.txIns[i].scriptPubkey(that.testnet)
         : new Script()
     }
+    console.log(`@cloned`)
+    console.log(cloned)
+    console.log(cloned.txIns[0])
     const raw = suffix(SIGHASH_ALL)(cloned.serialize())
     return hash256(raw)
   }
@@ -105,7 +113,7 @@ class Transaction {
     const locking = await that.txIns[i].scriptPubkey()
     const unlocking = that.txIns[i].scriptSig
     const result = unlocking.add(locking).run({ z, ...config })
-    console.log({ result })
+    // console.log({ result })
     return !result.stack.pop().toBN('le').isZero()
   }
 
@@ -132,6 +140,62 @@ class Transaction {
       locktime,
       testnet,
     )
+  }
+
+  /*
+   * @param {string} _prevTrx
+   * @param {number} _prevIndex
+   * @param {string} _targetAddress
+   * @param {string} _targetAmount
+   * @param {string} _changeAddress
+   * @param {string} _changeAmount
+   * @param {number|secp256k1.gn} _priv
+   */
+  static async createSimpleP2pkh (
+    _prevTrx,
+    _prevIndex,
+    _targetAddress,
+    _targetAmount,
+    _changeAddress,
+    _changeAmount,
+    _priv,
+  ) {
+    // TODO: network
+    const { sign } = require('./ecdsa')
+    const { G } = require('./secp256k1')
+    const prevTrx = hexToBE(_prevTrx)
+    console.log({ _prevIndex, _targetAmount, _changeAmount })
+    const prevIndex = bn(_prevIndex)
+    const targetScript = Script.fromP2pkh(fromBs58Check('tp2pkh', _targetAddress)) // TODO: functional
+    const targetAmount = bn(_targetAmount)
+    const changeScript = Script.fromP2pkh(fromBs58Check('tp2pkh', _changeAddress))
+    const changeAmount = bn(_changeAmount)
+
+    const trx = new Transaction(
+      // bn(2), // version
+      bn(1), // version
+      // [new Input(prevTrx, prevIndex, null, bn('fffffffd', 16))],
+      [new Input(prevTrx, prevIndex, null, bn('ffffffff', 16))],
+      [new Output(targetAmount, targetScript), new Output(changeAmount, changeScript)],
+      bn(0), // locktime
+      // bn(1579220), // locktime
+      true,
+    )
+
+    // TODO: priv format: number, gn, buffer? -> privatekeyclass
+    const z = await trx.sigHash(0)
+    // const e = nToBE(256)(_priv)
+    const e = _priv
+    const sigDER_ = sign(e, z).toDER().concat(hexToBE('01')) // TODO: SIGHASH_ALL
+    const pubSEC = G.rmul(_priv).toSEC()
+    const { toBs58Check } = require('./addressCodec')
+    const { hash160 } = require('../utils')
+    console.log(`privkey-p2pkh-address: ${toBs58Check('tp2pkh', hash160(pubSEC))}`)
+    const scriptSig = Script.fromSigPk(sigDER_, pubSEC)
+
+    /* !SIDE EFFECT! */
+    trx.txIns[0].scriptSig = scriptSig
+    return trx
   }
 }
 

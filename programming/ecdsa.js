@@ -53,7 +53,12 @@ function sign (
   const { _x } = G.rmul(k.fromRed())
 
   const r = gn(_x.fromRed())
-  const s = e.redMul(r).redAdd(z).redMul(kInv)
+  const _s = e.redMul(r).redAdd(z).redMul(kInv)
+  const ns = _s.redNeg()
+  const s = _s.fromRed().gt(ns.fromRed()) ? ns : _s
+
+  console.log({ _s, ns, s })
+
   const P = G.rmul(e.fromRed())
 
   return ({

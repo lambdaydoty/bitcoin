@@ -1,17 +1,10 @@
-const { toHex } = require('../utils')
+const { bn, red, toHex } = require('../utils')
+const { _2, _3, _32, _256, _977 } = bn.CONSTANT
 const point = require('./point')
-const BN = require('bn.js')
-
-const _2 = new BN(2)
-const _3 = new BN(3)
-const _32 = new BN(32)
-const _256 = new BN(256)
-const _977 = new BN(977)
 
 const PRIME = _2.pow(_256).sub(_2.pow(_32)).sub(_977)
-const ORDER = new BN('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 16)
-const red = BN.red(ORDER)
-const gn = (...x) => new BN(...x).toRed(red)
+const ORDER = bn('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 16)
+const gn = red(ORDER)
 
 const SEC = {
   'even': Buffer.from([0x02]),

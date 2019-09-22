@@ -1,7 +1,8 @@
 const assert = require('assert')
 const bs58 = require('bs58')
-const { hash256, concatN, concat } = require('../utils')
+const { hexToBE, hash256, concatN, concat } = require('../utils')
 const { pipe, o, tryCatch, always } = require('ramda')
+
 /*
  * https://en.bitcoin.it/wiki/List_of_address_prefixes
  * https://javascript.info/regexp-groups
@@ -27,15 +28,16 @@ const regexes = {
 /*
  * helpers to extract prefix/suffix from regexes
  */
+
 const getPrefix = reg => reg
   .toString()
-  .replace(/[()?/]/g)
+  .replace(/[()?/]/g, '')
   .match(/<prefix>\^(\w+)/)[1]
 
 const getSuffix = tryCatch(
   reg => reg
     .toString()
-    .replace(/[()?/]/g)
+    .replace(/[()?/]/g, '')
     .match(/<suffix>(\w+)\$/)[1],
   always(''),
 )
@@ -55,9 +57,9 @@ module.exports = {
       bs58.encode,
     )
     return fn(concatN(
-      Buffer.from(getPrefix(regexes[type]), 'hex'),
+      hexToBE(getPrefix(regexes[type])),
       buf,
-      Buffer.from(getSuffix(regexes[type]), 'hex'),
+      hexToBE(getSuffix(regexes[type])),
     ))
   },
 

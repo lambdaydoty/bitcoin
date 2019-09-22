@@ -1,14 +1,14 @@
 /* eslint-env jest */
 
 const point = require('./point')
-const { toBeBN, bToStream, hexToBE, nToBE, hash256 } = require('../utils')
+const { bn, toBeBN, bToStream, hexToBE, nToBE, hash256 } = require('../utils')
 const hexTo256BE = h => hexToBE(h, 256)
 
 expect.extend({ toBeBN })
 
 describe('Small curves', () => {
   // point(a, b, p): y^2 = x^3 + ax + b mod p
-  const Point = point(0, 7, 223)
+  const Point = point(0, 7, bn(223))
   const pt = (x, y) => new Point(x, y)
   const id = Point.id()
 
@@ -76,8 +76,8 @@ describe('Bitcoin', () => {
     // function der (r, s) {
     // }
     // der(
-    //   Buffer.from(r.toString(16), 'hex'),
-    //   Buffer.from(s.toString(16), 'hex'),
+    //   hexToBE(r.toString(16)),
+    //   hexToBE(s.toString(16)),
     // ),
 
     const P = pt(
@@ -120,8 +120,7 @@ describe('Bitcoin', () => {
 describe('Serialization', () => {
   const { fromDER, toDER } = require('./ecdsa')
   const { Secp256k1, G, gn } = require('./secp256k1')
-  const BN = require('bn.js')
-  const _5 = new BN(5)
+  const _5 = bn(5)
 
   beforeAll(() => {
     expect.extend({ toBePoint: Secp256k1.toBePoint })
@@ -149,9 +148,9 @@ describe('Serialization', () => {
     const priv1 = 5001
     const priv2 = gn(2019).redPow(_5)
     const priv3 = gn('deadbeef54321', 16)
-    const cP1 = Buffer.from('0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1', 'hex')
-    const cP2 = Buffer.from('02933ec2d2b111b92737ec12f1c5d20f3233a0ad21cd8b36d0bca7a0cfa5cb8701', 'hex')
-    const cP3 = Buffer.from('0296be5b1292f6c856b3c5654e886fc13511462059089cdf9c479623bfcbe77690', 'hex')
+    const cP1 = hexToBE('0357a4f368868a8a6d572991e484e664810ff14c05c0fa023275251151fe0e53d1')
+    const cP2 = hexToBE('02933ec2d2b111b92737ec12f1c5d20f3233a0ad21cd8b36d0bca7a0cfa5cb8701')
+    const cP3 = hexToBE('0296be5b1292f6c856b3c5654e886fc13511462059089cdf9c479623bfcbe77690')
     expect(G.rmul(priv1).toSEC()).toEqual(cP1)
     expect(G.rmul(priv2).toSEC()).toEqual(cP2)
     expect(G.rmul(priv3).toSEC()).toEqual(cP3)
@@ -165,7 +164,7 @@ describe('Serialization', () => {
       hexTo256BE('37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6'),
       hexTo256BE('8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec'),
     ]
-    const der = Buffer.from('3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec', 'hex')
+    const der = hexToBE('3045022037206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c60221008ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec')
 
     expect(toDER(R, S)).toEqual(der)
     expect(fromDER(der)).toEqual([R, S])
@@ -179,7 +178,7 @@ describe('Serialization', () => {
     expect(bs58.encode(hexToBE('c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6'))).toBe('EQJsjkd6JaGwxrjEhfeqPenqHwrBmPQZjJGNSCHBkcF7')
   })
 
-  test.only('Exercise 5', () => {
+  test('Exercise 5', () => {
     const { hash160 } = require('../utils')
     const { toBs58Check } = require('./addressCodec')
 
@@ -211,32 +210,26 @@ describe('Serialization', () => {
   })
 
   test('Exercise 6', () => {
-    const base58check = require('./base58check')
+    const { toBs58Check } = require('./addressCodec')
 
-    const MAINNET = Buffer.from([0x80])
-    const TESTNET = Buffer.from([0xef])
-
-    Buffer.prototype.toBs58ck = function (prefix, suffix) {
-      return base58check(prefix, suffix)(this)
-    }
-
-    const COMPRESSED_PUB_SEC = Buffer.from([0x01])
-    const UNCOMPRESSED_PUB_SEC = Buffer.from([])
+    Buffer.prototype.toBs58Check = function (type) { return toBs58Check(type, this) }
 
     const priv1 = gn(5003)
     const priv2 = gn(2021).redPow(_5)
     const priv3 = gn('54321deadbeef', 16)
 
-    expect(priv1.toBuffer('be', 256 / 8)
-      .toBs58ck(TESTNET, COMPRESSED_PUB_SEC)
+    expect(priv1
+      .toBuffer('be', 256 / 8)
+      .toBs58Check('tcWIF')
     ).toBe('cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN8rFTv2sfUK')
 
-    expect(priv2.toBuffer('be', 256 / 8)
-      .toBs58ck(TESTNET, UNCOMPRESSED_PUB_SEC)
+    expect(priv2
+      .toBuffer('be', 256 / 8)
+      .toBs58Check('tuWIF')
     ).toBe('91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4kvjpWAxgzczjbCwxic')
 
     expect(priv3.toBuffer('be', 256 / 8)
-      .toBs58ck(MAINNET, COMPRESSED_PUB_SEC)
+      .toBs58Check('cWIF')
     ).toBe('KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgiuQJv1h8Ytr2S53a')
   })
 })
@@ -252,15 +245,15 @@ describe('Transaction', () => {
   test('Exercise 1', () => {
     // hexTrxs[0]: https://chain.so/tx/BTC/452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03
     const hexTrxs = require('./trxs')
-    const stream = bToStream(Buffer.from(hexTrxs[0], 'hex'))
+    const stream = bToStream(hexToBE(hexTrxs[0]))
     const trx = Transaction.parse(stream)
     console.log(`${trx}`)
 
     // const { parseVarintToBN, nToVarint } = Transaction
 
-    // const varInt1 = Buffer.from('6a', 'hex')
-    // const varInt2 = Buffer.from('fd2602', 'hex')
-    // const varInt3 = Buffer.from('fe703a0f00', 'hex')
+    // const varInt1 = hexToBE('6a')
+    // const varInt2 = hexToBE('fd2602')
+    // const varInt3 = hexToBE('fe703a0f00')
 
     // const varIntToN = b => parseVarintToBN(bToStream(b)).toNumber()
 
@@ -275,11 +268,11 @@ describe('Transaction', () => {
 
   test('Exercise 5', () => {
     const hexTrxs = require('./trxs')
-    const stream = bToStream(Buffer.from(hexTrxs[1], 'hex'))
+    const stream = bToStream(hexToBE(hexTrxs[1]))
     const trx = Transaction.parse(stream)
     expect(trx.txIns[1].scriptSig.cmds).toEqual([
-      Buffer.from('304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601', 'hex'),
-      Buffer.from('035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937', 'hex'),
+      hexToBE('304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a71601'),
+      hexToBE('035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937'),
     ])
     // expect(trx.txOuts[0].scriptPubkey).toBe('') // TODO
     expect(trx.txOuts[1].amount).toBeBN(40000000)
@@ -344,30 +337,86 @@ describe('7. Transaction Creation and Validation', () => {
 
   test('Verify id', () => {
     const testnet = true
-    const trx = Transaction.parse(bToStream(Buffer.from(sample[0].tx_hex, 'hex')), testnet)
+    const trx = Transaction.parse(bToStream(hexToBE(sample[0].tx_hex)), testnet)
     expect(trx.id()).toBe(sample[0].id)
   })
 
   test('Verify fee', async () => {
     const testnet = true
-    const trx = Transaction.parse(bToStream(Buffer.from(sample[0].tx_hex, 'hex')), testnet)
+    const trx = Transaction.parse(bToStream(hexToBE(sample[0].tx_hex)), testnet)
     const result = await trx.fee()
     expect(result).toBeBN(10000)
   })
 
   test('Exercise 1', async () => {
     const testnet = false
-    const raw = Buffer.from(sample[1].tx_hex, 'hex')
+    const raw = hexToBE(sample[1].tx_hex)
     const trx = Transaction.parse(raw, testnet)
     const result = await trx.sigHash(0)
-    expect(result).toEqual(Buffer.from(sample[1].sigHash0, 'hex'))
+    expect(result).toEqual(hexToBE(sample[1].sigHash0))
   })
 
   test('Exercise 2', async () => {
     const testnet = false
-    const raw = Buffer.from(sample[1].tx_hex, 'hex')
+    const raw = hexToBE(sample[1].tx_hex)
     const trx = Transaction.parse(raw, testnet)
     const result = await trx.verifyInput(0)
     expect(result).toBe(true)
+  })
+
+  test('fromP2pkh()', () => {
+    const { fromBs58Check } = require('./addressCodec')
+    const { fromP2pkh } = require('./Script')
+    expect(
+      fromP2pkh(fromBs58Check('p2pkh', '1JAHBxA51vwp5C2zpSB15VbxSZK3hVJs2H'))
+        .serialize()
+        .toString('hex')
+    ).toBe('1976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac')
+  })
+
+  test.skip('Create Transaction', async () => {
+    const { fromBs58Check } = require('./addressCodec')
+    // const trx = await Transaction.createSimpleP2pkh(
+    //   '0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299', 13,
+    //   'mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf', String(0.1 * 100000000),
+    //   'mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2', String(0.33 * 100000000),
+    //   8675309,
+    // )
+    // const trx = await Transaction.createSimpleP2pkh(
+    //   '75a1c4bc671f55f626dda1074c7725991e6f68b8fcefcfca7b64405ca3b45f1c', 1,
+    //   'miKegze5FQNCnGw6PKyqUbYUeBa4x2hFeM', '1000000',
+    //   'mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2', '899999',
+    //   8675309,
+    // )
+
+    // d98ec753d79e74542e91b36ab747942dc9b8b78f9d79320ba6e8bf23166e209c
+    // const trx = await Transaction.createSimpleP2pkh(
+    //   '5a98e2db0f5f15eef3482b43ad596f0c9562e1e0b0e792df6052e7794a1eb172', 1,
+    //   'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '100000',
+    //   'mr7cEkw3hKQce1rH38mZn6Zgx8Y569fqUf', '198983',
+    //   fromBs58Check('tcWIF', 'cTgdLEgnsaPAF5NoXbuZdwGbgRxPAFm34EPDUEGq8VQ3ubRmnxrx')
+    // )
+    // console.log(trx, trx.id(), trx.serialize().toString('hex'))
+    // console.log(
+    //   trx.txIns[0].scriptSig,
+    //   trx.txOuts[0].scriptPubkey,
+    //   trx.txOuts[1].scriptPubkey,
+    // )
+
+    /*
+     * Transaction.createSimpleP2pkh(
+     *   ...[id, ix],
+     *   ...[addr, amount],
+     *   ...[addr, amount],
+     *   privateKey,
+     * )
+     */
+    const trx = await Transaction.createSimpleP2pkh(
+      '4abfaab6a2825db49aec26c2d91d80411d5bc3881a169ad2c014ce78c5ef999e', 1,
+      'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '540',
+      'n13HKC5Qny4dzZcRzvKev65CbMCiLFQVxR', '4034191',
+      fromBs58Check('tcWIF', 'cPUHfGjC3AnRmTQgWtuhwfQ5uqo4SHXro7ERTxQkFDNHwb2tnTpj')
+    )
+    console.log(trx, trx.id(), trx.serialize().toString('hex'))
   })
 })

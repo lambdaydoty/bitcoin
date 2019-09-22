@@ -16,9 +16,8 @@ const isNumber = o(equals('Number'), type)
 // Script.fromString('0x0001 OP_IF 0x11 OP_ELSE 0xff OP_ENDIF').run()
 // Script.fromString('1 1 OP_ADD').run()
 
-// p2pk : '<pubkey> OP_CHECKSIG' | '<signature>'
-//
-// p2pkh : 'OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG' | '<signature> <pubkey>'
+// p2pk : '<pubkey> OP_CHECKSIG' + '<signature>'
+// p2pkh : 'OP_DUP OP_HASH160 <hash> OP_EQUALVERIFY OP_CHECKSIG' + '<signature> <pubkey>'
 
 class Script {
   constructor (_cmds = []) {
@@ -105,6 +104,17 @@ class Script {
       [T, o(nToLE(), Number)], // XXX: note the endianness
     ])
     return new Script(program.map(mapper))
+  }
+
+  static fromP2pkh (bHash160) {
+    const hex = bHash160.toString('hex')
+    return Script.fromString(`OP_DUP OP_HASH160 0x${hex} OP_EQUALVERIFY OP_CHECKSIG`)
+  }
+
+  static fromSigPk (bDER_, bSEC) {
+    const hDER_ = bDER_.toString('hex')
+    const hSEC = bSEC.toString('hex')
+    return Script.fromString(`0x${hDER_} 0x${hSEC}`)
   }
 }
 

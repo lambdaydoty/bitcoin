@@ -43,6 +43,7 @@ class Input {
   async txOutFetcher (testnet) {
     const that = this
     const raw = await trxFetcher(that.prevTrx, testnet)
+    console.log({ raw })
     const { outputs } = trxParser(raw, testnet)
     const txOut = outputs.map(x => new Output(...x))[that.prevIndex]
     return txOut
