@@ -319,7 +319,7 @@ describe('Script', () => {
   })
 })
 
-describe('7. Transaction Creation and Validation', () => {
+describe.only('7. Transaction Creation and Validation', () => {
   // TODO: mock node-fetch!
   const Transaction = require('./Transaction')
   const sample = [
@@ -389,7 +389,8 @@ describe('7. Transaction Creation and Validation', () => {
       '6e099ad34d7748fc7491089f16dddf8262ce99880255b519989eea611f1e4547', 1,
       'mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv', '5434',
       'n13HKC5Qny4dzZcRzvKev65CbMCiLFQVxR', '17680000',
-      fromBs58Check('tcWIF', 'cRLyeY9cL7p4gNvWnArfQkZ8Q6Mjth62ybczg6NJx9xsJrYia2QS')
+      fromBs58Check('tcWIF', 'cRLyeY9cL7p4gNvWnArfQkZ8Q6Mjth62ybczg6NJx9xsJrYia2QS'),
+      /* testnet */ true,
     )
     const result = await trx.verify()
     expect(result).toBe(true)

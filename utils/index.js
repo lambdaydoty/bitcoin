@@ -4,9 +4,7 @@ const fetch = require('node-fetch')
 const R = require('ramda')
 const BN = require('bn.js')
 const crypto = require('crypto')
-const { o, __ } = R
-const { curryN } = R
-const { tryCatch, always } = R
+const { o, __, invoker, curryN, tryCatch, always } = R
 
 const hash256 = o(sha256, sha256)
 const hash160 = o(ripemd160, sha256)
@@ -72,7 +70,34 @@ module.exports = {
   get,
   parseVarintToBN,
   nToVarint,
+  arrayExt,
 }
+
+/**
+ * Extend the Array functionalitiy
+ * the `functional mixins` pattern
+ */
+function arrayExt (ar = []) {
+  return Object.assign(ar, {
+
+    _isArrayExtended: true,
+
+    varIntLength () {
+      return nToVarint(this.length)
+    },
+
+    clone () {
+      const clone = invoker(0, 'clone')
+      return Array.from(this.map(clone))
+    },
+
+  })
+}
+
+// A workaround, otherwise we should extend Array
+// Array.prototype.clone = function () {
+//   return Array.from(this.map(R.clone))
+// }
 
 /*
  * Prototyping Buffer, Array
@@ -91,12 +116,6 @@ Buffer.prototype.concat = function (that) {
 }
 Buffer.prototype.clone = function () {
   return Buffer.from(this)
-}
-
-/* eslint no-extend-native: ["error", { "exceptions": ["Array"] }] */
-// A workaround, otherwise we should extend Array
-Array.prototype.clone = function () {
-  return Array.from(this.map(R.clone))
 }
 
 function safeEval (fn) {

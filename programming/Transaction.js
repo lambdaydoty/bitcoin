@@ -1,4 +1,4 @@
-const { hexToBE, hash256, nToVarint, suffix } = require('../utils')
+const { arrayExt, hexToBE, hash256, suffix } = require('../utils')
 const Script = require('./Script')
 const Input = require('./Input')
 const Output = require('./Output')
@@ -9,6 +9,7 @@ const { and, range, concat, invoker } = R
 const { fromBs58Check } = require('./addressCodec')
 const BN = require('bn.js')
 const bn = (...x) => new BN(...x)
+const { sign } = require('./ecdsa')
 
 const SIGHASH_ALL = hexToBE('01000000')
 // const SIGHASH_ALL = hexToBE('01')
@@ -55,11 +56,13 @@ class Transaction {
 
   serialize () {
     const serialize = invoker(0, 'serialize')
+    console.log(this.txIns)
+    console.log(this.txOuts)
     return Buffer.concat([
       this.version.toBuffer('le', 4),
-      nToVarint(this.txIns.length),
+      this.txIns.varIntLength(),
       this.txIns.map(serialize).reduce(concat),
-      nToVarint(this.txOuts.length),
+      this.txOuts.varIntLength(),
       this.txOuts.map(serialize).reduce(concat),
       this.locktime.toBuffer('le', 4),
     ])
@@ -75,11 +78,11 @@ class Transaction {
    *    5. Script
    *  (Optional 6. Buffer, also through prototyping)
    */
-  clone () {
+  clone () { // TODO: R.clone should work with functional mixins
     return new Transaction(
       R.clone(this.version),
-      R.clone(this.txIns),
-      R.clone(this.txOuts),
+      arrayExt(R.clone(this.txIns)),
+      arrayExt(R.clone(this.txOuts)),
       R.clone(this.locktime),
       R.clone(this.testnet),
     )
@@ -134,8 +137,8 @@ class Transaction {
     const { version, inputs, outputs, locktime } = trxParser(stream, testnet)
     return new Transaction(
       version,
-      inputs.map(data => new Input(...data)),
-      outputs.map(data => new Output(...data)),
+      arrayExt(inputs.map(data => new Input(...data))),
+      arrayExt(outputs.map(data => new Output(...data))),
       locktime,
       testnet,
     )
@@ -157,31 +160,32 @@ class Transaction {
     _targetAmount,
     _changeAddress,
     _changeAmount,
-    _priv, // TODO: priv format: number, gn, buffer? -> privatekeyclass
+    _priv,
+    testnet = false,
   ) {
-    // TODO: network
-    const { sign } = require('./ecdsa')
+    const type = testnet ? 'tp2pkh' : 'p2pkh'
+
     const prevTrx = hexToBE(_prevTrx)
     const prevIndex = bn(_prevIndex)
-    const targetScript = Script.fromP2pkh(fromBs58Check('tp2pkh', _targetAddress)) // TODO: functional
+    const targetScript = Script.fromP2pkh(fromBs58Check(type, _targetAddress))
     const targetAmount = bn(_targetAmount)
-    const changeScript = Script.fromP2pkh(fromBs58Check('tp2pkh', _changeAddress))
+    const changeScript = Script.fromP2pkh(fromBs58Check(type, _changeAddress))
     const changeAmount = bn(_changeAmount)
 
     const trx = new Transaction(
       bn(1),
-      [
-        new Input(prevTrx, prevIndex, null, bn('ffffffff', 16)),
-      ],
-      [
+      arrayExt([
+        new Input(prevTrx, prevIndex),
+      ]),
+      arrayExt([
         new Output(targetAmount, targetScript),
         new Output(changeAmount, changeScript),
-      ],
+      ]),
       bn(0),
-      true,
+      testnet,
     )
 
-    const z = await trx.sigHash(0, SIGHASH_ALL)
+    const z = await trx.sigHash(0, SIGHASH_ALL) // will fetch prev utxo
     const e = _priv
 
     const result = sign(e, z)
