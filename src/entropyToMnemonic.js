@@ -10,8 +10,10 @@ const crypto = require('crypto')
  * cks: hexNotation
  */
 
-const binToNumber = x => bn(`0b${x}`).toNumber()
-const hexNotationToBin = x => bn(`0x${x}`).toString(2).padStart(x.length * 8 / 2, '0')
+// const binToNumber = x => bn(`0b${x}`).toNumber()
+// const hexNotationToBin = x => bn(`0x${x}`).toString(2).padStart(x.length * 8 / 2, '0')
+const binToNumber = x => bn(x, 2).toNumber()
+const hexNotationToBin = x => bn(x, 16).toString(2).padStart(x.length * 8 / 2, '0')
 
 const cks = entropy => sha256(Buffer.from(entropy, 'hex'))
   .toString('hex')

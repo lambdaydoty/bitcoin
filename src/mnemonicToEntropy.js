@@ -29,7 +29,7 @@ function mnemonicToEntropy (/* utf8 */ mnemonic) {
     map(numberTo11Bin),
     join(''),
     x => x.slice(0, bits),
-    x => bn(`0b${x}`).toString(16),
+    x => bn(x, 2).toString(16),
   )()
 }
 
